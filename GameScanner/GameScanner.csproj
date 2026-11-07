@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22000.0</TargetFramework>
+    <AssemblyName>GameScanner</AssemblyName>
+    <RootNamespace>GameScanner</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Registry API được đánh dấu chỉ chạy trên Windows; tool này chỉ dành cho Windows -->
+    <NoWarn></NoWarn>
+
+    <!-- Một exe Windows độc lập, không yêu cầu máy đích cài .NET Runtime. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+    <StartupObject>GameScanner.Program</StartupObject>
+  </PropertyGroup>
+
+</Project>

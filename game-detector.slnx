@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="GameRunningDetector/GameProcessChecker.csproj" />
+  <Project Path="GameScanner/GameScanner.csproj" />
+</Solution>

@@ -1,0 +1,11 @@
+{
+  "includePaths": [
+    "*\\Games\\*",
+    "*\\HoYoPlay\\*"
+  ],
+  "excludePaths": [
+    "*\\Windows\\*",
+    "*\\Program Files\\Common Files\\*",
+    "*\\Steam\\steamapps\\common\\Steamworks Shared*"
+  ]
+}

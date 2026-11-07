@@ -1,7 +1,9 @@
 {
   "includePaths": [
     "*\\Games\\*",
-    "*\\HoYoPlay\\*"
+    "*\\HoYoPlay\\*",
+    "C:\\YostarGames\\Arknights_EN",
+    "C:\\YostarGames\\Arknights_EN\\"
   ],
   "excludePaths": [
     "*\\Windows\\*",

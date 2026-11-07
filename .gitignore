@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/GameScanner/Stages/rules.json
+/GameScanner/rules.json
+/GameRunningDetector/games.json
+/GameRunningDetector/Properties/launchSettings.json
+/GameScanner/Properties/launchSettings.json

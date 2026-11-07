@@ -1,0 +1,13 @@
+{
+  "includePaths": [
+    "*\\Games\\*",
+    "*\\HoYoPlay\\*",
+    "C:\\YostarGames\\Arknights_EN",    // heuristic search by pattern, not exact absolute path
+    "C:\\YostarGames\\Arknights_EN\\"   // adding slash at the end when include folder to search exact absolute path
+  ],
+  "excludePaths": [
+    "*\\Windows\\*",
+    "*\\Program Files\\Common Files\\*",
+    "*\\Steam\\steamapps\\common\\Steamworks Shared*"
+  ]
+}

@@ -6,11 +6,15 @@ namespace GameScanner;
 /// - Mục chỉ có trong Registry Uninstall: mặc định 0 điểm (không phải game), chỉ khi có dấu hiệu
 ///   cộng điểm (game engine, thư mục Games...) đạt ngưỡng thì mới được chọn; tên/publisher giống
 ///   phần mềm thông thường sẽ bị trừ điểm.
-/// - Mục không có file exe tồn tại: luôn bị loại.
+/// - Mục không có file exe tồn tại, hoặc nằm trong thư mục Windows: luôn bị loại.
 /// </summary>
 internal static class HeuristicFilterStage
 {
     private const int MinScoreToKeep = 45;
+
+    // Thư mục Windows thực tế của máy (thường là C:\Windows), lấy từ hệ thống thay vì viết cứng
+    private static readonly string WindowsDir =
+        PathUtils.NormalizeDirectoryPath(Environment.GetFolderPath(Environment.SpecialFolder.Windows));
 
     // Điểm cộng/trừ cho mục Registry Uninstall (điểm khởi đầu là 0)
     private const int GameEngineScore = 50;     // một mình dấu hiệu engine đã đủ qua ngưỡng
@@ -59,10 +63,23 @@ internal static class HeuristicFilterStage
         if (item.IsRedistributable)
             return false;
 
+        // Mọi thứ nằm trong thư mục Windows (C:\Windows\...) đều là thành phần hệ thống
+        if (IsUnderWindowsDir(item.InstallDir) || IsUnderWindowsDir(item.ExePath))
+            return false;
+
         if (string.IsNullOrWhiteSpace(item.ExePath) || !File.Exists(item.ExePath))
             return false;
 
         return item.IsLauncher || ScoreRegistryApp(item) >= MinScoreToKeep;
+    }
+
+    private static bool IsUnderWindowsDir(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || WindowsDir.Length == 0)
+            return false;
+
+        return path.Equals(WindowsDir, StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(WindowsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     private static int ScoreRegistryApp(ScanItem item)

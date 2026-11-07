@@ -13,6 +13,10 @@ public sealed class AppEntry
 {
     [JsonPropertyName("exePath")]
     public string? ExePath { get; set; }
+
+    // Giả định: mảng chuỗi, mỗi phần tử là đường dẫn đầy đủ tới 1 exe có thể là game này.
+    [JsonPropertyName("candidateExes")]
+    public List<string>? CandidateExes { get; set; }
 }
 
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
@@ -30,6 +34,16 @@ internal sealed record TargetSet(HashSet<string> Paths, HashSet<string> Names)
         new HashSet<string>(StringComparer.OrdinalIgnoreCase));
 
     public bool IsEmpty => Paths.Count == 0;
+
+    public void Add(string? exePath)
+    {
+        if (string.IsNullOrWhiteSpace(exePath))
+            return;
+
+        string fullPath = Path.GetFullPath(exePath.Trim());
+        Paths.Add(fullPath);
+        Names.Add(Path.GetFileNameWithoutExtension(fullPath));
+    }
 }
 
 /// <summary>Đọc games.json và tự nạp lại khi file thay đổi.</summary>
@@ -85,12 +99,16 @@ internal sealed class TargetConfig
 
         foreach (AppEntry item in items)
         {
-            if (string.IsNullOrWhiteSpace(item.ExePath))
+            result.Add(item.ExePath);
+
+            // hiện tại candidate exes đang chưa chuẩn xác, lẫn launcher vào, mà exePath cũng nhầm sang launcher
+            // cách giải quyết trước mắt: chơi xong tắt launcher, cho đến khi cải thiện được thuật toán GameScanner, hoặc sửa thủ công file games.json
+            if (item.CandidateExes is null)
                 continue;
 
-            string fullPath = Path.GetFullPath(item.ExePath.Trim());
-            result.Paths.Add(fullPath);
-            result.Names.Add(Path.GetFileNameWithoutExtension(fullPath));
+            foreach (string candidate in item.CandidateExes)
+                result.Add(candidate);
+
         }
 
         return result;

@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace GameProcessChecker;
 
 internal static class Program
@@ -12,26 +10,23 @@ internal static class Program
         if (!isNew)
             return;
 
-        LowerProcessPriority();
-
-        ApplicationConfiguration.Initialize();
-        Application.Run(new TrayApplicationContext(args));
-    }
-
-    private static void LowerProcessPriority()
-    {
         try
         {
-            // Background mode: CPU Idle + I/O priority thấp + memory priority thấp.
-            if (!NativeMethods.SetPriorityClass(NativeMethods.GetCurrentProcess(), NativeMethods.PROCESS_MODE_BACKGROUND_BEGIN))
-            {
-                using Process self = Process.GetCurrentProcess();
-                self.PriorityClass = ProcessPriorityClass.Idle;
-            }
+            NativeMethods.EnableEfficiencyMode();
         }
         catch
         {
             // Không critical, bỏ qua.
         }
+
+        using var tray = new NativeTray("Game Process Checker: đang khởi động");
+        using var watcher = new GameWatcher(new TargetConfig(args));
+
+        // Được gọi từ thread nền; SetTooltip tự chuyển việc về thread của tray.
+        watcher.StateChanged += running => tray.SetTooltip(
+            running ? "Game Process Checker: đang có game" : "Game Process Checker: không có game");
+
+        watcher.Start();
+        tray.Run(); // Chặn tới khi người dùng chọn "Thoát"
     }
 }

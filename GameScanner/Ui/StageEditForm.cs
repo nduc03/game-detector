@@ -21,6 +21,8 @@ internal sealed class StageEditForm : Form
     private readonly RadioButton _fromOutFile = new() { Text = "File chương trình ghi ra $out", AutoSize = true };
     private readonly TextBox _resultPathBox = FormLayout.CreateTextBox(300);
     private readonly Button _resultPathButton;
+    // Tìm chương trình trong PATH có thể chậm (thư mục mạng...), nên chỉ tìm khi người dùng ngừng gõ.
+    private readonly System.Windows.Forms.Timer _exeCheckTimer = new() { Interval = 350 };
     private readonly NumericUpDown _timeoutBox = new() { Minimum = 0, Maximum = 86400, Width = 90, Anchor = AnchorStyles.Left };
 
     /// <param name="stage">Bản sao của pipeline cần sửa, hoặc null để tạo mới.</param>
@@ -40,7 +42,16 @@ internal sealed class StageEditForm : Form
         _fromOutFile.Checked = _stage.ResultSource == StageResultSource.OutFile;
 
         _resultPathButton = FormLayout.CreateButton("Chọn…", (_, _) => BrowseResultPath());
-        _exeBox.TextChanged += (_, _) => UpdateExeStatus();
+        _exeBox.TextChanged += (_, _) =>
+        {
+            _exeCheckTimer.Stop();
+            _exeCheckTimer.Start();
+        };
+        _exeCheckTimer.Tick += (_, _) =>
+        {
+            _exeCheckTimer.Stop();
+            UpdateExeStatus();
+        };
         _fromPath.CheckedChanged += (_, _) => UpdateResultPathEnabled();
 
         TableLayoutPanel grid = FormLayout.CreateGrid(3);
@@ -241,4 +252,12 @@ internal sealed class StageEditForm : Form
 
     private bool Confirm(string message) =>
         MessageBox.Show(this, message, Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+            _exeCheckTimer.Dispose();
+
+        base.Dispose(disposing);
+    }
 }

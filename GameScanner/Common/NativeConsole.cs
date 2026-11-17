@@ -3,13 +3,13 @@ using System.Runtime.InteropServices;
 namespace GameScanner;
 
 /// <summary>
-/// App là WinExe (không có console riêng) nên Console.IsInputRedirected/IsOutputRedirected không đáng tin:
+/// App là WinExe (không có console riêng) nên Console.IsInputRedirected/IsErrorRedirected không đáng tin:
 /// handle rỗng cũng bị coi là "đã chuyển hướng". Ở đây kiểm tra trực tiếp loại handle.
 /// </summary>
 internal static class NativeConsole
 {
     private const int STD_INPUT_HANDLE = -10;
-    private const int STD_OUTPUT_HANDLE = -11;
+    private const int STD_ERROR_HANDLE = -12;
     private const uint FILE_TYPE_DISK = 0x0001;
     private const uint FILE_TYPE_PIPE = 0x0003;
     private const uint FILE_TYPE_REMOTE = 0x8000;
@@ -28,8 +28,8 @@ internal static class NativeConsole
     /// <summary>stdin đang nối với pipe (`a | GameScanner`) hoặc file (`GameScanner &lt; a.json`).</summary>
     public static bool IsStdinRedirected => IsFileOrPipe(STD_INPUT_HANDLE);
 
-    /// <summary>stdout đang nối với pipe (`GameScanner | b`) hoặc file (`GameScanner &gt; a.json`).</summary>
-    public static bool IsStdoutRedirected => IsFileOrPipe(STD_OUTPUT_HANDLE);
+    /// <summary>stderr đang nối với pipe hoặc file (`GameScanner 2&gt; log.txt`).</summary>
+    public static bool IsStderrRedirected => IsFileOrPipe(STD_ERROR_HANDLE);
 
     /// <summary>Gắn vào console của tiến trình cha (nếu có) để log stderr hiện ra cửa sổ dòng lệnh đang gọi.</summary>
     public static void AttachToParentConsole()

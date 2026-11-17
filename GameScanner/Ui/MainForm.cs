@@ -23,6 +23,7 @@ internal sealed class MainForm : Form
     private PipelinePacket? _lastPacket;
     private CancellationTokenSource? _cts;
     private bool _refreshingSteps;
+    private bool _closeWhenIdle;
 
     private readonly ListView _stepList = new()
     {
@@ -102,8 +103,8 @@ internal sealed class MainForm : Form
         Text = AppTitle;
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(1200, 720);
-        MinimumSize = new Size(860, 500);
+        ClientSize = new Size(1120, 660);
+        MinimumSize = new Size(760, 440);
         StartPosition = FormStartPosition.CenterScreen;
         if (ShellHelper.LoadAppIcon() is { } icon)
             Icon = icon;
@@ -119,6 +120,7 @@ internal sealed class MainForm : Form
         Load += (_, _) =>
         {
             // Kích thước theo DPI chỉ chính xác sau khi cửa sổ đã có handle và đã được scale.
+            FitToScreen();
             ApplyInitialSplit();
             _iconColumn.Width = LogicalToDeviceUnits(40);
             _folderColumn.Width = LogicalToDeviceUnits(104);
@@ -160,6 +162,19 @@ internal sealed class MainForm : Form
 
         ResumeLayout(performLayout: true);
         SetRunning(false);
+    }
+
+    /// <summary>Ở DPI cao, kích thước mặc định sau khi scale có thể lớn hơn màn hình: thu lại cho vừa vùng làm việc.</summary>
+    private void FitToScreen()
+    {
+        Rectangle area = Screen.FromControl(this).WorkingArea;
+        int width = Math.Min(Width, area.Width);
+        int height = Math.Min(Height, area.Height);
+        if (width == Width && height == Height)
+            return;
+
+        MinimumSize = new Size(Math.Min(MinimumSize.Width, width), Math.Min(MinimumSize.Height, height));
+        Bounds = new Rectangle(area.X + (area.Width - width) / 2, area.Y + (area.Height - height) / 2, width, height);
     }
 
     private void ApplyInitialSplit()
@@ -656,6 +671,10 @@ internal sealed class MainForm : Form
             cts.Dispose();
             if (!IsDisposed)
                 SetRunning(false);
+
+            // Người dùng đã bấm đóng cửa sổ trong lúc chạy: giờ chương trình ngoài đã dừng hẳn, đóng được rồi.
+            if (_closeWhenIdle && !IsDisposed)
+                Close();
         }
     }
 
@@ -988,8 +1007,16 @@ internal sealed class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        // Đóng cửa sổ giữa lúc chạy: dừng chương trình ngoài, kết quả dở dang không được ghi.
-        _cts?.Cancel();
+        // Đóng cửa sổ giữa lúc chạy: hủy pipeline và chờ chương trình ngoài bị dừng hẳn rồi mới đóng,
+        // để không bỏ lại tiến trình con chạy ngầm. Kết quả dở dang không được ghi.
+        if (IsRunning && e.CloseReason != CloseReason.WindowsShutDown)
+        {
+            e.Cancel = true;
+            _closeWhenIdle = true;
+            StopPipeline();
+            _statusLabel.Text = "Đang dừng pipeline để đóng...";
+        }
+
         base.OnFormClosing(e);
     }
 

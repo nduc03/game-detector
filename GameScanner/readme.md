@@ -3,7 +3,7 @@
 `GameScanner.exe` có hai cách dùng trong cùng một file exe:
 
 * **Giao diện WinForms** (mặc định khi mở bằng double-click): quét, lưu danh sách game, thêm thủ công, tự định nghĩa pipeline quét, xuất `games.json` cho GameProcessChecker.
-* **Dòng lệnh kiểu Unix filter** (`stdin` / `stdout` / `stderr`): giữ nguyên như trước để ghép nối bằng `|`, và để chính `GameScanner.exe` làm một mắt xích trong pipeline.
+* **Dòng lệnh kiểu Unix filter** (`stdin` / `stdout` / `stderr`), bật bằng cờ `--cli`: để ghép nối bằng `|`, và để chính `GameScanner.exe` làm một mắt xích trong pipeline.
 
 ## 1. Giao diện
 
@@ -91,11 +91,11 @@ Bỏ tick *Tệp → Xuất kèm exe khác của game (candidateExes)* nếu ch�
 
 ## 2. Chế độ dòng lệnh (Unix filter)
 
-`GameScanner.exe` chạy chế độ dòng lệnh thay vì mở giao diện khi có một trong các cờ `--cli`, `--rules <file>` (`-r`), `--no-exclude-output`, hoặc khi `stdin` / `stdout` đang được nối với pipe hay file. Thêm `--gui` để luôn mở giao diện.
+`GameScanner.exe` chạy chế độ dòng lệnh thay vì mở giao diện khi có ít nhất một trong các cờ `--cli`, `--rules <file>` (`-r`), `--no-exclude-output`. **Khác với bản console trước đây, gọi trần `GameScanner.exe > file.json` sẽ mở giao diện; cần thêm `--cli`.** Việc chuyển hướng `stdin` / `stdout` không tự bật chế độ này, vì nhiều trình khởi chạy (Git Bash, IDE, script) luôn nối pipe vào app.
 
 ```powershell
 # Quét máy: Collect -> Heuristic -> Rules (nếu có rules.json), xuất cả included lẫn excluded
-.\GameScanner.exe > scan_full.json
+.\GameScanner.exe --cli > scan_full.json
 
 # Chỉ xuất danh sách đã chọn
 .\GameScanner.exe --no-exclude-output > games_clean.json
@@ -104,17 +104,17 @@ Bỏ tick *Tệp → Xuất kèm exe khác của game (candidateExes)* nếu ch�
 .\GameScanner.exe --rules D:\configs\my_rules.json > scan_with_rules.json
 
 # Nối với bước lọc khác, rồi dùng lại GameScanner ở cuối để cắt phần excluded
-.\GameScanner.exe | python ai_filter_stage.py | .\GameScanner.exe --no-exclude-output > games.json
+.\GameScanner.exe --cli | python ai_filter_stage.py | .\GameScanner.exe --no-exclude-output > games.json
 
 # Nhận packet từ stdin và áp thêm một file rules
-.\GameScanner.exe | python ai_filter_stage.py | .\GameScanner.exe --rules post_ai_rules.json --no-exclude-output > games.json
+.\GameScanner.exe --cli | python ai_filter_stage.py | .\GameScanner.exe --rules post_ai_rules.json --no-exclude-output > games.json
 ```
 
 Ghi chú:
 
 * Khi nhận packet từ `stdin`, rules chỉ được áp nếu truyền `--rules` tường minh.
 * Packet từ `stdin` sai cấu trúc, hoặc bất kỳ lỗi nào khác, làm chương trình thoát với mã 1 (lỗi ghi ra `stderr`).
-* App là chương trình Windows (không có console riêng) nên `cmd` không đợi nó chạy xong khi gọi trần không chuyển hướng; hãy chuyển hướng ra file/pipe như các ví dụ trên, hoặc dùng `start /wait`.
+* App là chương trình Windows (không có console riêng). PowerShell đợi nó chạy xong khi đầu ra được chuyển hướng hoặc nối pipe như các ví dụ trên. Ở dấu nhắc `cmd` gõ tay, `cmd` trả dấu nhắc ngay mà không đợi và không cập nhật `%ERRORLEVEL%`; dùng `start /wait GameScanner.exe --cli ...` nếu cần đợi hoặc cần mã thoát.
 
 ## 3. Cấu trúc packet (`PipelinePacket`)
 
@@ -171,7 +171,7 @@ Quy ước cho chương trình làm một bước:
 ## 4. Mẫu một bước tùy chỉnh (Node.js)
 
 ```javascript
-// Dòng lệnh: .\GameScanner.exe | node rescue_stage.js | .\GameScanner.exe --no-exclude-output
+// Dòng lệnh: .\GameScanner.exe --cli | node rescue_stage.js | .\GameScanner.exe --no-exclude-output
 // Trong GUI: Chương trình = node, Tham số = D:\tools\rescue_stage.js, tick stdin, lấy kết quả từ stdout
 const fs = require("fs");
 

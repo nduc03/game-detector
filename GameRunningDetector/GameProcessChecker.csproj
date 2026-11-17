@@ -7,6 +7,7 @@
 
     <AssemblyName>GameProcessChecker</AssemblyName>
     <RootNamespace>GameProcessChecker</RootNamespace>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <!-- Registry API được đánh dấu chỉ chạy trên Windows; tool này chỉ dành cho Windows -->

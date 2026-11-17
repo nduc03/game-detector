@@ -147,9 +147,14 @@ internal sealed class NativeTray : IDisposable
         _tooltip = initialTooltip;
         _wndProc = WndProc;
         _taskbarCreatedMsg = RegisterWindowMessageW("TaskbarCreated");
-        _icon = LoadIconW(IntPtr.Zero, (IntPtr)IDI_APPLICATION);
-
         IntPtr hInstance = GetModuleHandleW(null);
+
+        // Icon nhúng trong exe qua <ApplicationIcon> có resource ID 32512 (trùng IDI_APPLICATION);
+        // không có thì dùng icon ứng dụng mặc định của Windows.
+        _icon = LoadIconW(hInstance, (IntPtr)IDI_APPLICATION);
+        if (_icon == IntPtr.Zero)
+            _icon = LoadIconW(IntPtr.Zero, (IntPtr)IDI_APPLICATION);
+
         var wc = new WNDCLASSEX
         {
             cbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),

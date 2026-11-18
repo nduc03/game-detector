@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace GameScanner;
 
 /// <summary>
@@ -12,4 +15,8 @@ public sealed class PipelinePacket
     /// Các mục bị loại. Bằng null (ẩn khỏi JSON) khi chạy với cờ --no-exclude-output.
     /// </summary>
     public List<AppEntry>? Excluded { get; set; } = [];
+
+    /// <summary>Trường lạ ở gốc packet do pipeline tùy chỉnh thêm vào, được giữ nguyên khi chuyển tiếp.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
 }

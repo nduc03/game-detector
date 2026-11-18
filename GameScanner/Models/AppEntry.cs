@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace GameScanner;
 
 /// <summary>
@@ -16,4 +19,11 @@ public sealed class AppEntry
 
     /// <summary>Các file .exe hợp lệ khác trong thư mục cài đặt (điểm ưu tiên thấp hơn ExePath).</summary>
     public List<string> CandidateExes { get; set; } = [];
+
+    /// <summary>
+    /// Trường lạ do pipeline tùy chỉnh thêm vào: không dùng tới nhưng được giữ nguyên
+    /// để bước phía sau trong pipeline vẫn đọc được.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
 }

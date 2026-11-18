@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GameScanner - app icon
+     Glyph tay cam: Maki (Mapbox) "gaming" - @mapbox/maki 8.2.0, icons/gaming.svg - CC0 1.0 Universal.
+     Nen bo goc + kinh lup: tu ve. Xem ICON-LICENSE.md. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect width="256" height="256" fill="#fff"/>
+      <circle cx="184" cy="182" r="38" fill="#000" stroke="#000" stroke-width="40"/>
+      <line x1="211" y1="209" x2="229" y2="227" stroke="#000" stroke-width="46" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <rect width="256" height="256" rx="56" ry="56" fill="url(#bg)"/>
+  <g mask="url(#cut)">
+    <path transform="translate(18.00 27.80) scale(12.000)" fill="#ffffff" d="m13.1 11.5c-.6.3-1.4.1-1.8-.5l-1.1-1.4h-5.40002l-1.1 1.4c-.5.7-1.4.8-2.1.3-.5-.4-.700004-1-.600004-1.5l.700004-3.7c.2-1.2 1.3-2.1 2.5-2.1h2.8v-1.5c0-.8.6-1.5 1.4-1.5h3.10002c.3 0 .5.2.5.5s-.2.5-.5.5h-3.00002c-.3 0-.5.2-.5.4v.1 1.5h2.80002c1.2 0 2.3.9 2.5 2.1l.7 3.7c.1.7-.2 1.4-.9 1.7zm-7.10002-5c0-.8-.7-1.5-1.5-1.5s-1.5.7-1.5 1.5.7 1.5 1.5 1.5 1.5-.7 1.5-1.5zm6.00002 0c0-.3-.2-.5-.5-.5h-.5v-.5c0-.3-.2-.5-.5-.5s-.50002.2-.50002.5v.5h-.5c-.3 0-.5.2-.5.5s.2.5.5.5h.5v.5c0 .3.20002.5.50002.5s.5-.2.5-.5v-.5h.5c.3 0 .5-.2.5-.5z"/>
+  </g>
+  <!-- kinh lup (tu ve) -->
+  <g fill="none" stroke="#ffffff" stroke-linecap="round">
+    <line x1="211" y1="209" x2="229" y2="227" stroke-width="22"/>
+    <circle cx="184" cy="182" r="38" stroke-width="16" fill="#312e81" fill-opacity="0.45"/>
+  </g>
+</svg>

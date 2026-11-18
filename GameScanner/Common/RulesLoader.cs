@@ -20,6 +20,24 @@ internal static class RulesLoader
             .FirstOrDefault(File.Exists);
     }
 
+    /// <summary>Đọc file rules cho pipeline của GUI: file hỏng là lỗi (ném exception) chứ không bỏ qua.</summary>
+    public static RulesConfig LoadStrict(string path)
+    {
+        try
+        {
+            var config = JsonSerializer.Deserialize(File.ReadAllText(path), AppJsonContext.Default.RulesConfig)
+                ?? throw new InvalidDataException($"File rules rỗng: {path}");
+            config.IncludePaths ??= [];
+            config.ExcludePaths ??= [];
+            Log.Info($"[rules] Dùng file cấu hình: {path}");
+            return config;
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException($"File rules '{path}' không phải JSON hợp lệ: {ex.Message}", ex);
+        }
+    }
+
     public static RulesConfig? Load(string? path)
     {
         if (path is null)

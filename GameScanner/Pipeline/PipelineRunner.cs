@@ -4,33 +4,40 @@ namespace GameScanner;
 
 internal enum StepKind
 {
-    /// <summary>Có sẵn: Collect + Heuristic (nguồn dữ liệu, không dùng packet đầu vào).</summary>
-    Scan,
+    /// <summary>Có sẵn, luôn chạy đầu tiên, không tắt được: thu thập từ Registry và launcher, mọi mục vào excluded.</summary>
+    Collect,
 
-    /// <summary>Có sẵn: lọc theo rules.json.</summary>
-    Rules,
+    /// <summary>Có sẵn: chọn game từ excluded sang included bằng heuristic.</summary>
+    Heuristic,
 
     /// <summary>Chương trình ngoài do người dùng định nghĩa.</summary>
-    Custom
+    Custom,
+
+    /// <summary>Có sẵn, luôn chạy cuối, không xóa được: áp danh sách nhớ (rules.json trong thư mục dữ liệu).</summary>
+    Remember
 }
 
 /// <summary>Một bước trong pipeline của GUI.</summary>
 internal sealed record PipelineStep(StepKind Kind, string DisplayName, bool Enabled, CustomStage? Custom = null)
 {
-    /// <summary>Thứ tự chạy: Quét hệ thống -> Rules -> các pipeline tùy chỉnh theo thứ tự người dùng sắp.</summary>
+    public bool CanDisable => Kind != StepKind.Collect;
+
+    public bool CanDelete => Kind == StepKind.Custom;
+
+    /// <summary>
+    /// Thứ tự chạy: Collect -> Heuristic -> các pipeline tùy chỉnh theo thứ tự người dùng sắp -> Danh sách nhớ.
+    /// Danh sách nhớ luôn đứng cuối, kể cả khi thêm pipeline mới.
+    /// </summary>
     public static List<PipelineStep> BuildAll(ScannerSettings settings)
     {
-        string rulesName = string.IsNullOrWhiteSpace(settings.RulesPath)
-            ? "tự tìm rules.json"
-            : Path.GetFileName(settings.RulesPath);
-
         var steps = new List<PipelineStep>
         {
-            new(StepKind.Scan, "Quét hệ thống (Collect + Heuristic)", settings.ScanStageEnabled),
-            new(StepKind.Rules, $"Rules ({rulesName})", settings.RulesStageEnabled)
+            new(StepKind.Collect, "Thu thập (Registry + launcher)", Enabled: true),
+            new(StepKind.Heuristic, "Heuristic (chọn game từ excluded)", settings.HeuristicStageEnabled)
         };
 
         steps.AddRange(settings.CustomStages.Select(s => new PipelineStep(StepKind.Custom, s.DisplayName, s.Enabled, s.Clone())));
+        steps.Add(new PipelineStep(StepKind.Remember, "Danh sách nhớ (include / exclude)", settings.RememberStageEnabled));
         return steps;
     }
 }
@@ -48,10 +55,12 @@ internal static class PipelineRunner
     /// Bất kỳ bước nào lỗi (vì bất kỳ lý do gì) thì dừng ngay và ném <see cref="PipelineException"/>:
     /// không có kết quả trung gian nào được trả về, và packet đầu vào không bị sửa.
     /// </summary>
+    /// <param name="rules">Danh sách nhớ dùng cho bước <see cref="StepKind.Remember"/> (không bị sửa).</param>
     public static async Task<PipelinePacket> RunAsync(
-        IReadOnlyList<PipelineStep> steps, PipelinePacket input, string? rulesPath, CancellationToken cancellationToken)
+        IReadOnlyList<PipelineStep> steps, PipelinePacket input, RulesConfig rules, CancellationToken cancellationToken)
     {
         PipelinePacket packet = Clone(input);
+        RulesConfig rulesCopy = RulesStore.Clone(rules);
         string runDirectory = AppPaths.CreateRunDirectory();
 
         try
@@ -67,8 +76,9 @@ internal static class PipelineRunner
                 {
                     packet = step.Kind switch
                     {
-                        StepKind.Scan => HeuristicFilterStage.Process(RegistryAndLauncherCollector.Collect()),
-                        StepKind.Rules => RunRules(packet, rulesPath),
+                        StepKind.Collect => RegistryAndLauncherCollector.CollectPacket(),
+                        StepKind.Heuristic => HeuristicFilterStage.Process(packet),
+                        StepKind.Remember => new IncludeExcludeRulesStage(rulesCopy).Process(packet),
                         StepKind.Custom => await CustomStageRunner.RunAsync(step.Custom!, packet, runDirectory, i + 1, cancellationToken),
                         _ => throw new InvalidOperationException($"Loại bước không hỗ trợ: {step.Kind}")
                     };
@@ -101,29 +111,6 @@ internal static class PipelineRunner
                 // File tạm còn bị giữ: để hệ thống dọn sau.
             }
         }
-    }
-
-    private static PipelinePacket RunRules(PipelinePacket packet, string? explicitPath)
-    {
-        string? path;
-        if (!string.IsNullOrWhiteSpace(explicitPath))
-        {
-            // Người dùng đã chỉ định file rules: thiếu file là lỗi chứ không âm thầm bỏ qua.
-            if (!File.Exists(explicitPath))
-                throw new FileNotFoundException($"Không tìm thấy file rules đã chọn: {explicitPath}");
-            path = explicitPath;
-        }
-        else
-        {
-            path = RulesLoader.Resolve(null);
-            if (path is null)
-            {
-                Log.Info("[rules] Không tìm thấy rules.json -> bỏ qua bước lọc rules.");
-                return packet;
-            }
-        }
-
-        return new IncludeExcludeRulesStage(RulesLoader.LoadStrict(path)).Process(packet);
     }
 
     private static PipelinePacket Clone(PipelinePacket packet) =>

@@ -6,16 +6,13 @@ namespace GameScanner;
 /// Biến chèn vào tham số của pipeline tùy chỉnh:
 ///   $in  -> đường dẫn file chứa packet đầu vào (trước khi xử lý)
 ///   $out -> đường dẫn file để chương trình ghi packet đã xử lý
-/// $json (chèn thẳng nội dung packet) cố ý KHÔNG hỗ trợ: dòng lệnh Windows giới hạn khoảng 32.767 ký tự
-/// trong khi packet của một máy bình thường dài hơn nhiều, và JSON đầy dấu nháy rất dễ làm hỏng tham số.
 /// </summary>
 internal static class StageArguments
 {
     public const string In = "$in";
     public const string Out = "$out";
-    public const string Json = "$json";
 
-    private static readonly string[] Variables = [Json, Out, In];
+    private static readonly string[] Variables = [Out, In];
 
     public static bool Contains(string? arguments, string variable)
     {

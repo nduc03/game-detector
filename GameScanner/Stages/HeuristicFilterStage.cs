@@ -1,12 +1,14 @@
 namespace GameScanner;
 
 /// <summary>
-/// Stage 2: phân loại các mục đã thu thập thành included / excluded.
-/// - Mục có exe hợp lệ và phát hiện từ launcher: luôn được chọn (trừ gói redistributable).
-/// - Mục chỉ có trong Registry Uninstall: mặc định 0 điểm (không phải game), chỉ khi có dấu hiệu
+/// Bước Heuristic: chấm điểm các mục đang ở "excluded" (Collect đặt mọi mục ở đó), mục được nhận là game
+/// thì chuyển sang "included". Không đụng tới mục đã ở "included" (do bước khác chọn), nên chạy lại nhiều lần
+/// hay đặt sau bước khác đều an toàn.
+/// - Mục có exe hợp lệ và phát hiện từ launcher (launcherGame): được chọn (trừ gói redistributable).
+/// - Mục còn lại (vd. chỉ có trong Registry Uninstall): mặc định 0 điểm, chỉ khi có dấu hiệu
 ///   cộng điểm (game engine, thư mục Games...) đạt ngưỡng thì mới được chọn; tên/publisher giống
 ///   phần mềm thông thường sẽ bị trừ điểm.
-/// - Mục không có file exe tồn tại, hoặc nằm trong thư mục Windows: luôn bị loại.
+/// - Mục không có file exe tồn tại, hoặc nằm trong thư mục Windows: không được chọn.
 /// </summary>
 internal static class HeuristicFilterStage
 {
@@ -46,21 +48,39 @@ internal static class HeuristicFilterStage
         "amd_fidelityfx_dx12.dll", "fmod.dll", "fmodstudio.dll", "bink2w64.dll", "AkSoundEngine.dll"
     ];
 
-    public static PipelinePacket Process(IEnumerable<ScanItem> items)
+    public static PipelinePacket Process(PipelinePacket packet)
     {
-        var included = new List<AppEntry>();
-        var excluded = new List<AppEntry>();
+        packet.Included ??= [];
+        if (packet.Excluded is null)
+        {
+            Log.Info("[heuristic] Packet không có \"excluded\" -> không có gì để chấm điểm.");
+            return packet;
+        }
 
-        foreach (var item in items)
-            (IsGame(item) ? included : excluded).Add(item.ToEntry());
+        var remaining = new List<AppEntry>();
+        int promoted = 0;
+        foreach (AppEntry entry in packet.Excluded)
+        {
+            if (IsGame(entry))
+            {
+                packet.Included.Add(entry);
+                promoted++;
+            }
+            else
+            {
+                remaining.Add(entry);
+            }
+        }
 
-        Log.Info($"[heuristic] Đã phân loại: {included.Count} included, {excluded.Count} excluded (ngưỡng >= {MinScoreToKeep}).");
-        return new PipelinePacket { Included = included, Excluded = excluded };
+        packet.Excluded = remaining;
+        Log.Info($"[heuristic] Chọn thêm {promoted} game từ excluded (ngưỡng >= {MinScoreToKeep}): "
+                 + $"{packet.Included.Count} included, {remaining.Count} excluded.");
+        return packet;
     }
 
-    private static bool IsGame(ScanItem item)
+    private static bool IsGame(AppEntry item)
     {
-        if (item.IsRedistributable)
+        if (item.Redistributable == true)
             return false;
 
         // Mọi thứ nằm trong thư mục Windows (C:\Windows\...) đều là thành phần hệ thống
@@ -70,7 +90,7 @@ internal static class HeuristicFilterStage
         if (string.IsNullOrWhiteSpace(item.ExePath) || !File.Exists(item.ExePath))
             return false;
 
-        return item.IsLauncher || ScoreRegistryApp(item) >= MinScoreToKeep;
+        return item.LauncherGame == true || ScoreRegistryApp(item) >= MinScoreToKeep;
     }
 
     private static bool IsUnderWindowsDir(string? path)
@@ -82,7 +102,7 @@ internal static class HeuristicFilterStage
             || path.StartsWith(WindowsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static int ScoreRegistryApp(ScanItem item)
+    private static int ScoreRegistryApp(AppEntry item)
     {
         int score = 0;
 
@@ -96,7 +116,8 @@ internal static class HeuristicFilterStage
                 score += GamesFolderScore;
         }
 
-        if (NonGameNameKeywords.Any(k => item.Name.Contains(k, StringComparison.OrdinalIgnoreCase)))
+        string name = item.Name ?? "";
+        if (NonGameNameKeywords.Any(k => name.Contains(k, StringComparison.OrdinalIgnoreCase)))
             score += NonGameNamePenalty;
 
         if (item.Publisher is { } publisher &&
@@ -106,9 +127,9 @@ internal static class HeuristicFilterStage
         return score;
     }
 
-    private static bool HasGameEngineSignature(ScanItem item, string installDir)
+    private static bool HasGameEngineSignature(AppEntry item, string installDir)
     {
-        var exes = new List<string>(item.CandidateExes);
+        var exes = new List<string>(item.CandidateExes ?? []);
         if (!string.IsNullOrWhiteSpace(item.ExePath))
             exes.Add(item.ExePath);
 

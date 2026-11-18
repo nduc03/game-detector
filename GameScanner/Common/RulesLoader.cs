@@ -7,35 +7,22 @@ internal static class RulesLoader
     private const string DefaultFileName = "rules.json";
 
     /// <summary>
-    /// Có đường dẫn tường minh (--rules) thì dùng nó; nếu không thì tự tìm rules.json
-    /// ở thư mục làm việc hiện tại rồi tới thư mục chứa file .exe. Trả về null nếu không có file.
+    /// Có đường dẫn tường minh (--rules) thì dùng nó; nếu không thì tự tìm rules.json ở thư mục làm việc
+    /// hiện tại, thư mục chứa file .exe, rồi tới danh sách nhớ của GUI (GameScanner_Data\rules.json).
+    /// Trả về null nếu không có file.
     /// </summary>
     public static string? Resolve(string? explicitPath)
     {
         if (!string.IsNullOrWhiteSpace(explicitPath))
             return File.Exists(explicitPath) ? explicitPath : null;
 
-        return new[] { Environment.CurrentDirectory, AppContext.BaseDirectory }
-            .Select(dir => Path.Combine(dir, DefaultFileName))
+        return new[]
+            {
+                Path.Combine(Environment.CurrentDirectory, DefaultFileName),
+                Path.Combine(AppContext.BaseDirectory, DefaultFileName),
+                AppPaths.RulesFile
+            }
             .FirstOrDefault(File.Exists);
-    }
-
-    /// <summary>Đọc file rules cho pipeline của GUI: file hỏng là lỗi (ném exception) chứ không bỏ qua.</summary>
-    public static RulesConfig LoadStrict(string path)
-    {
-        try
-        {
-            var config = JsonSerializer.Deserialize(File.ReadAllText(path), AppJsonContext.Default.RulesConfig)
-                ?? throw new InvalidDataException($"File rules rỗng: {path}");
-            config.IncludePaths ??= [];
-            config.ExcludePaths ??= [];
-            Log.Info($"[rules] Dùng file cấu hình: {path}");
-            return config;
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidDataException($"File rules '{path}' không phải JSON hợp lệ: {ex.Message}", ex);
-        }
     }
 
     public static RulesConfig? Load(string? path)
@@ -45,7 +32,7 @@ internal static class RulesLoader
 
         try
         {
-            var config = JsonSerializer.Deserialize(File.ReadAllText(path), AppJsonContext.Default.RulesConfig);
+            var config = JsonSerializer.Deserialize(File.ReadAllText(path), AppJsonContext.Default.RulesConfig)?.Normalize();
             if (config is not null)
                 Log.Info($"[rules] Đã tự động kích hoạt file cấu hình: {path}");
             return config;

@@ -19,9 +19,6 @@ internal static class CustomStageRunner
         string exe = ExecutableLocator.Resolve(stage.ExePath)
             ?? throw new InvalidOperationException($"Không tìm thấy chương trình: {stage.ExePath}");
 
-        if (StageArguments.Contains(stage.Arguments, StageArguments.Json))
-            throw new InvalidOperationException("Tham số chứa $json, biến này không được hỗ trợ. Hãy dùng stdin hoặc $in.");
-
         string inPath = Path.Combine(runDirectory, $"step{stepNumber}-in.json");
         string outPath = Path.Combine(runDirectory, $"step{stepNumber}-out.json");
         string inputJson = JsonSerializer.Serialize(input, AppJsonContext.Default.PipelinePacket);

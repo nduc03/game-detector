@@ -75,9 +75,7 @@ internal sealed class StageEditForm : Form
             "Biến có thể chèn vào tham số:\n"
             + "  $in  — đường dẫn file JSON chứa pipeline packet đầu vào (trước khi xử lý).\n"
             + "  $out — đường dẫn file để chương trình ghi pipeline packet đã xử lý.\n"
-            + "Biến nằm ngoài cặp nháy kép sẽ tự được bọc nháy. Đường dẫn khác trong tham số nên viết dạng tuyệt đối.\n"
-            + "$json (chèn thẳng nội dung packet) không được hỗ trợ: packet thường dài hơn giới hạn ~32.767 ký tự của "
-            + "dòng lệnh Windows và chứa nhiều dấu nháy dễ làm hỏng tham số. Hãy dùng stdin hoặc $in.",
+            + "Biến nằm ngoài cặp nháy kép sẽ tự được bọc nháy. Đường dẫn khác trong tham số nên viết dạng tuyệt đối.",
             FieldWidth), 1, row++);
 
         grid.Controls.Add(_pipeBox, 1, row++);
@@ -200,13 +198,6 @@ internal sealed class StageEditForm : Form
         {
             ShowError("Không tìm thấy chương trình. Cần đường dẫn tuyệt đối tới file .exe/.com/.bat/.cmd đang tồn tại, "
                       + "hoặc tên lệnh có trong PATH.", _exeBox);
-            return;
-        }
-
-        if (StageArguments.Contains(args, StageArguments.Json))
-        {
-            ShowError("$json không được hỗ trợ vì nội dung packet có thể vượt giới hạn độ dài dòng lệnh. "
-                      + "Hãy tick ô truyền qua stdin hoặc dùng $in.", _argsBox);
             return;
         }
 

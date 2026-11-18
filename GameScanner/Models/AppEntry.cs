@@ -20,6 +20,15 @@ public sealed class AppEntry
     /// <summary>Các file .exe hợp lệ khác trong thư mục cài đặt (điểm ưu tiên thấp hơn ExePath).</summary>
     public List<string> CandidateExes { get; set; } = [];
 
+    /// <summary>Nơi phát hiện mục này (Steam, EpicGames, Registry, rules...).</summary>
+    public string? Source { get; set; }
+
+    /// <summary>true khi phát hiện từ manifest/khóa registry của game launcher; heuristic coi là game.</summary>
+    public bool? LauncherGame { get; set; }
+
+    /// <summary>true với gói redistributable (vd. Steamworks Common Redistributables); heuristic không bao giờ chọn.</summary>
+    public bool? Redistributable { get; set; }
+
     /// <summary>
     /// Trường lạ do pipeline tùy chỉnh thêm vào: không dùng tới nhưng được giữ nguyên
     /// để bước phía sau trong pipeline vẫn đọc được.

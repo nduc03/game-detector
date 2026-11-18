@@ -9,12 +9,14 @@ internal sealed class PacketFormatException(string message) : Exception(message)
 /// Kiểm tra lại cấu trúc JSON mà một bước pipeline trả về trước khi chuyển cho bước sau.
 /// Cấu trúc hợp lệ:
 ///   { "included": [ mục... ], "excluded": [ mục... ] | null | (không có) }
-///   mục = { "name"?, "publisher"?, "exePath"?, "installDir"?: chuỗi | null, "candidateExes"?: [chuỗi...] | null }
+///   mục = { "name"?, "publisher"?, "exePath"?, "installDir"?, "source"?: chuỗi | null,
+///           "candidateExes"?: [chuỗi...] | null, "launcherGame"?, "redistributable"?: true/false | null }
 /// Mục trong "included" phải có exePath hoặc installDir. Trường lạ được chấp nhận và giữ nguyên.
 /// </summary>
 internal static class PacketValidator
 {
-    private static readonly string[] StringFields = ["name", "publisher", "exePath", "installDir"];
+    private static readonly string[] StringFields = ["name", "publisher", "exePath", "installDir", "source"];
+    private static readonly string[] BoolFields = ["launcherGame", "redistributable"];
 
     public static PipelinePacket Parse(string? json)
     {
@@ -89,6 +91,15 @@ internal static class PacketValidator
 
             if (field is "exePath" or "installDir" && !string.IsNullOrWhiteSpace(value.GetString()))
                 hasLocation = true;
+        }
+
+        foreach (string field in BoolFields)
+        {
+            if (TryGetProperty(entry, field, out JsonElement value)
+                && value.ValueKind is not (JsonValueKind.Null or JsonValueKind.True or JsonValueKind.False))
+            {
+                throw new PacketFormatException($"{path}.{field} phải là true/false hoặc null, nhưng nhận được {Describe(value)}.");
+            }
         }
 
         if (TryGetProperty(entry, "candidateExes", out JsonElement candidates) && candidates.ValueKind != JsonValueKind.Null)

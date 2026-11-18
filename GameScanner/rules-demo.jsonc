@@ -2,8 +2,8 @@
   "includePaths": [
     "*\\Games\\*",
     "*\\HoYoPlay\\*",
-    "C:\\YostarGames\\Arknights_EN",    // heuristic search by pattern, not exact absolute path
-    "C:\\YostarGames\\Arknights_EN\\"   // adding slash at the end when include folder to search exact absolute path
+    "C:\\YostarGames\\Arknights_EN",    // absolute path: this folder and everything inside it (not Arknights_EN_Beta)
+    "C:\\YostarGames\\Arknights*"       // wildcard: prefix match
   ],
   "excludePaths": [
     "*\\Windows\\*",

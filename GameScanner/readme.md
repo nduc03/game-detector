@@ -9,42 +9,74 @@
 
 ### Danh sách game
 
-* Mỗi game hiện icon lấy từ file exe, tên, nhà phát hành, đường dẫn exe, nguồn (Quét / Thủ công) và nút **Mở thư mục** (mở Explorer, chọn sẵn file exe).
-* **Thêm thủ công…**: chọn file `.exe` → hộp thoại điền các thuộc tính không bắt buộc (tên, nhà phát hành, thư mục cài đặt, các exe khác của game). Tên và nhà phát hành được điền sẵn từ thông tin phiên bản của file.
-* **Sửa…** (hoặc double-click, `F2`) và **Xóa** (`Del`) áp dụng cho game đang chọn. Xóa chỉ bỏ khỏi danh sách, không đụng tới file trên đĩa.
+* Mỗi game hiện icon lấy từ file exe, tên, nhà phát hành, đường dẫn exe, nguồn (Steam, Registry…, hoặc Thủ công) và nút **Mở thư mục** (mở Explorer, chọn sẵn file exe).
+* **Thêm thủ công…**: chọn file `.exe` → hộp thoại điền các thuộc tính không bắt buộc. Tên và nhà phát hành được điền sẵn từ thông tin phiên bản của file. Game thêm thủ công được ghi vào **Danh sách nhớ → Luôn chọn**.
+* **Sửa…** (hoặc double-click, `F2`). Mỗi exe khác của game (`candidateExes`) là một dòng riêng, có nút **…** (chọn file), **⬆** (đưa lên làm exe chính) và **✕** (xóa); dòng cuối có nút **+ Thêm exe khác**. Khi promote, app hỏi xác nhận, kèm ô tick (mặc định tắt) để xóa luôn mọi exe khác (kể cả exe chính cũ).
+* **Xóa** (`Del`): bỏ khỏi danh sách (không đụng tới file trên đĩa) và ghi game vào **Danh sách nhớ → Luôn loại** để các lần quét sau tự động loại.
 * Ô **Tìm** lọc theo tên, nhà phát hành, đường dẫn.
 
-### Dữ liệu của app
+### Nhận diện "cùng một game"
 
-Lưu dạng JSON trong `%LOCALAPPDATA%\GameScanner\` (menu *Tệp → Mở thư mục dữ liệu*):
+Mọi chỗ cần biết hai mục có phải cùng một game không (quét lại có thêm trùng không, thêm/sửa thủ công có trùng không, game đã xóa có bị loại không) đều so theo **thư mục**, không theo `exePath`, để đổi exe chính không làm game bị thêm lại:
+
+* Thư mục của một mục là `installDir`, không có thì thư mục chứa exe chính.
+* Cùng game khi: cùng thư mục; hoặc cùng file exe; hoặc exe của bên này nằm trong thư mục của bên kia **và ngược lại** (một bên ghi thư mục gốc, bên kia ghi thư mục con chứa exe, ví dụ Unreal `...\Binaries\Win64`). Điều kiện hai chiều tránh nhầm thư mục launcher (ví dụ `Steam`) với các game nằm bên trong nó.
+* Không phân biệt hoa thường, `/` và `\` coi như nhau, bỏ qua `\` ở cuối. `D:\Games\A` không khớp `D:\Games\AB`.
+
+### Dữ liệu của app (portable)
+
+Lưu dạng JSON trong thư mục **`GameScanner_Data` cạnh `GameScanner.exe`** (menu *Tệp → Mở thư mục dữ liệu*). Chép cả thư mục chứa exe sang máy khác là mang theo dữ liệu; vì thế thư mục đó phải ghi được (đừng đặt trong `Program Files`).
 
 | File | Nội dung |
 | :--- | :--- |
 | `library.json` | Danh sách game đã quét / thêm thủ công. |
-| `settings.json` | Các bước pipeline, file rules đã chọn, tùy chọn xuất. |
+| `settings.json` | Các bước pipeline (bật/tắt, pipeline tùy chỉnh), tùy chọn xuất. |
+| `rules.json` | Danh sách nhớ (bước cuối pipeline). Cùng định dạng với `--rules` của chế độ dòng lệnh (mục 5). |
 | `last-packet.json` | Packet cuối của lần chạy pipeline thành công gần nhất (đầu vào khi chạy riêng một bước). |
 
-Chọn JSON thay vì SQLite vì dữ liệu chỉ vài trăm mục, không cần truy vấn, sửa tay được, và không phải đóng gói thêm thư viện native vào file exe duy nhất.
+Chọn JSON thay vì SQLite vì dữ liệu chỉ vài trăm mục, không cần truy vấn, sửa tay được, và không phải đóng gói thêm thư viện native vào file exe duy nhất. File hỏng không bị ghi đè: app đổi tên nó thành `*.hong-<thời gian>` và bắt đầu lại từ rỗng.
 
 ### Pipeline quét
 
 Khung **Pipeline quét** liệt kê các bước theo thứ tự chạy từ trên xuống:
 
-1. **Quét hệ thống (Collect + Heuristic)** – có sẵn. Đọc Registry `Uninstall` và cấu hình của Steam, Epic Games, Ubisoft Connect, GOG Galaxy, EA App, Riot Games rồi phân loại bằng heuristic. Đây là nguồn dữ liệu nên không dùng packet đầu vào.
-2. **Rules** – có sẵn. Áp `includePaths` / `excludePaths`. Mặc định tự tìm `rules.json` ở thư mục hiện tại rồi cạnh `GameScanner.exe` (không có thì bỏ qua); hoặc chọn file cụ thể bằng *Pipeline → Chọn file rules…* (khi đã chọn mà file thiếu/hỏng thì bước này lỗi).
-3. **Các pipeline tùy chỉnh** – do bạn định nghĩa, sắp thứ tự bằng nút ▲ ▼.
+1. **Thu thập (Collect)** – có sẵn, luôn chạy, không tắt được. Đọc Registry `Uninstall` và cấu hình của Steam, Epic Games, Ubisoft Connect, GOG Galaxy, EA App, Riot Games. Không phân loại: **mọi mục được đặt vào `excluded`**, kèm `source` và cờ `launcherGame` / `redistributable` để bước sau dùng. Đây là nguồn dữ liệu nên không dùng packet đầu vào.
+2. **Heuristic** – có sẵn, tắt được. Chấm điểm các mục trong `excluded`, mục được nhận là game thì chuyển sang `included`. Không đụng tới mục đã ở `included`, nên chạy lại nhiều lần vẫn an toàn. Tắt bước này thì chỉ pipeline tùy chỉnh và danh sách nhớ quyết định game nào được chọn.
+3. **Các pipeline tùy chỉnh** – do bạn định nghĩa, sắp thứ tự bằng nút ▲ ▼, tắt được hoặc xóa hẳn.
+4. **Danh sách nhớ (include / exclude)** – có sẵn, **luôn ở cuối** (pipeline mới thêm vào vẫn nằm trên nó), không xóa được, chỉ tắt được. Bấm **Sửa…** để xem và chỉnh (mục bên dưới).
+
+Bỏ tick ở một bước, hoặc chọn bước rồi bấm **Tắt**, để bỏ qua bước đó khi chạy toàn bộ mà vẫn giữ cấu hình (bước tắt hiện màu xám, ghi "đã tắt"). Bấm **Bật** để dùng lại.
 
 Cách chạy:
 
-* **Chạy toàn bộ**: chạy các bước đang được tick, kết quả bước trước là đầu vào bước sau.
-* **Chạy riêng bước đã chọn**: chỉ chạy một bước. Bước "Quét hệ thống" tự sinh dữ liệu; các bước khác nhận đầu vào là kết quả của lần chạy pipeline thành công gần nhất (gồm cả `included` lẫn `excluded`), chưa có thì lấy danh sách game hiện tại.
+* **Chạy toàn bộ**: chạy các bước đang bật, kết quả bước trước là đầu vào bước sau.
+* **Chạy riêng bước đã chọn**: chỉ chạy một bước. Bước Collect tự sinh dữ liệu (chạy riêng nó không thêm game nào vì mọi mục nằm ở `excluded`); các bước khác nhận đầu vào là kết quả của lần chạy pipeline thành công gần nhất (gồm cả `included` lẫn `excluded`), chưa có thì lấy danh sách game hiện tại.
 
 Quy tắc xử lý kết quả:
 
 * Sau **mỗi bước**, kết quả được kiểm tra lại cấu trúc packet (mục 3). Sai cấu trúc là lỗi.
 * **Một bước lỗi vì bất kỳ lý do gì** (không tìm thấy chương trình, mã thoát khác 0, quá thời gian, thiếu file kết quả, JSON sai cấu trúc, bấm Dừng…) thì pipeline ngắt ngay và **hủy toàn bộ kết quả từ bước đầu tiên**; danh sách game giữ nguyên.
-* Khi mọi bước thành công, app lấy **trạng thái cuối cùng** của pipeline: mục nào trong `included` chưa có trong danh sách thì được thêm (tô nền xanh nhạt). **Game cũ không bao giờ bị xóa hay ghi đè khi quét lại**, kể cả khi lần quét này không còn thấy nó.
-* Hai mục được coi là cùng một game khi trùng exe chính, hoặc cùng thư mục cài đặt và exe chính của bên này nằm trong `candidateExes` của bên kia.
+* Khi mọi bước thành công, app lấy **trạng thái cuối cùng** của pipeline: mục nào trong `included` chưa có trong danh sách (so theo thư mục) thì được thêm (tô nền xanh nhạt). **Game cũ không bao giờ bị xóa hay ghi đè khi quét lại**, kể cả khi lần quét này không còn thấy nó.
+
+### Danh sách nhớ
+
+Thay cho việc viết `rules.json` bằng tay. Cửa sổ có hai tab:
+
+* **Luôn loại (exclude)**: game bạn đã xóa khỏi danh sách (tự thêm khi xóa), cùng các mẫu đường dẫn luôn loại.
+* **Luôn chọn (include)**: game bạn đã thêm thủ công (tự thêm), cùng các mẫu đường dẫn luôn chọn. Game luôn chọn mà lần quét không thấy sẽ được thêm lại nếu thư mục/exe còn trên đĩa.
+
+Mỗi tab có: **Thêm thư mục game…**, **Thêm file exe…**, **Thêm mẫu đường dẫn…**, **Sửa…**, **Xóa (quên)**, **Chuyển sang tab kia**. Một game không thể nằm ở cả hai tab: thêm vào tab này sẽ tự bỏ khỏi tab kia.
+
+Mẫu đường dẫn (không phân biệt hoa thường, so với `installDir` và `exePath`):
+
+| Mẫu | Khớp |
+| :--- | :--- |
+| `D:\Games\MyGame` (đường dẫn tuyệt đối) | Chính nó và mọi thứ bên trong, đúng ranh giới thư mục (không khớp `D:\Games\MyGame2`). |
+| `*\Games\*` (có `*`) | Wildcard, khớp toàn chuỗi. |
+| `regex:\\Ubisoft\\.*\.exe$` | Biểu thức chính quy. |
+| `Common Files` (còn lại) | Chứa chuỗi con. |
+
+Thứ tự ưu tiên khi quyết định một mục: game luôn chọn → game luôn loại → mẫu luôn chọn → mẫu luôn loại; không khớp gì thì giữ nguyên vị trí.
 
 ### Tự định nghĩa pipeline
 
@@ -66,8 +98,6 @@ Biến chèn vào tham số:
 | `$out` | Đường dẫn file để chương trình ghi packet đã xử lý. |
 
 Biến nằm ngoài cặp nháy kép được tự bọc nháy; biến đã nằm trong cặp nháy thì chèn nguyên văn. Đường dẫn khác trong tham số (ví dụ file script) nên viết dạng tuyệt đối.
-
-**`$json` (chèn thẳng nội dung packet vào tham số) không được hỗ trợ**: dòng lệnh Windows giới hạn khoảng 32.767 ký tự trong khi packet của một máy bình thường dài hơn nhiều, và JSON đầy dấu nháy rất dễ làm hỏng tham số. Dùng stdin hoặc `$in` thay thế.
 
 Ví dụ:
 
@@ -130,7 +160,9 @@ Mọi bước trong pipeline (bước có sẵn, pipeline tùy chỉnh trong GUI
       "installDir": "D:\\SteamLibrary\\steamapps\\common\\BlackMythWukong",
       "candidateExes": [
         "D:\\SteamLibrary\\steamapps\\common\\BlackMythWukong\\b1.exe"
-      ]
+      ],
+      "source": "Steam",
+      "launcherGame": true
     }
   ],
   "excluded": [
@@ -152,8 +184,9 @@ Quy tắc được kiểm tra sau mỗi bước:
 | Gốc | Phải là object. |
 | `included` | Bắt buộc, là mảng các mục. |
 | `excluded` | Không bắt buộc; là mảng các mục, `null`, hoặc vắng mặt (khi dùng `--no-exclude-output`). |
-| `name`, `publisher`, `exePath`, `installDir` | Chuỗi hoặc `null`. |
+| `name`, `publisher`, `exePath`, `installDir`, `source` | Chuỗi hoặc `null`. |
 | `candidateExes` | Mảng chuỗi, `null`, hoặc vắng mặt. |
+| `launcherGame`, `redistributable` | `true` / `false` / `null`, hoặc vắng mặt. Collect đặt `launcherGame: true` cho mục lấy từ launcher và `redistributable: true` cho gói redistributable; Heuristic dùng hai cờ này. |
 | Mục trong `included` | Phải có `exePath` hoặc `installDir`. |
 | Trường lạ | Được chấp nhận và giữ nguyên khi chuyển cho bước sau (ví dụ điểm số do bước AI thêm vào). |
 
@@ -207,16 +240,27 @@ console.error(`[rescue] ${included.length} included, ${remainingExcluded.length}
 process.stdout.write(JSON.stringify(packet));
 ```
 
-## 5. File rules
+## 5. File rules (`rules.json`)
+
+GUI lưu Danh sách nhớ vào `GameScanner_Data\rules.json`; chế độ dòng lệnh đọc cùng định dạng qua `--rules <file>`. Không truyền `--rules` thì chế độ dòng lệnh tự tìm `rules.json` ở thư mục hiện tại, cạnh `GameScanner.exe`, rồi tới `GameScanner_Data\rules.json` (khi quét máy; khi nhận packet từ `stdin` thì chỉ áp rules nếu có `--rules`).
 
 ```json
 {
-  "includePaths": ["*\\Games\\*", "D:\\Portable\\MyGame\\"],
+  "includeApps": [
+    { "name": "Arknights", "installDir": "C:\\YostarGames\\Arknights_EN", "exePath": "C:\\YostarGames\\Arknights_EN\\Arknights.exe", "candidateExes": [] }
+  ],
+  "excludeApps": [
+    { "name": "Discord", "installDir": "C:\\Users\\User\\AppData\\Local\\Discord" }
+  ],
+  "includePaths": ["*\\Games\\*", "D:\\Portable\\MyGame"],
   "excludePaths": ["*\\Program Files\\Common Files\\*"]
 }
 ```
 
-Mỗi pattern được so với `installDir` và `exePath` của từng mục, không phân biệt hoa thường: `regex:...` là biểu thức chính quy, có `*` là wildcard khớp toàn chuỗi, còn lại là chứa chuỗi con. Khớp `includePaths` thì vào `included` (ưu tiên hơn `excludePaths`), khớp `excludePaths` thì vào `excluded`, không khớp thì giữ nguyên. `includePaths` là đường dẫn tuyệt đối (file `.exe` hoặc thư mục) mà chưa mục nào khớp thì được thêm mới vào `included`.
+* `includeApps` / `excludeApps`: game được nhớ, so theo thư mục như mục "Nhận diện cùng một game". Game trong `includeApps` mà packet không có sẽ được thêm mới nếu còn trên đĩa.
+* `includePaths` / `excludePaths`: mẫu đường dẫn như bảng ở mục "Danh sách nhớ". Đường dẫn tuyệt đối trong `includePaths` (file `.exe` hoặc thư mục) mà chưa mục nào khớp thì được thêm mới vào `included`.
+* Thứ tự ưu tiên: `includeApps` → `excludeApps` → `includePaths` → `excludePaths`; không khớp gì thì giữ nguyên vị trí.
+* Thay đổi so với trước: đường dẫn tuyệt đối không có `*` giờ khớp đúng ranh giới thư mục (trước đây là "chứa chuỗi con", nên `C:\YostarGames\Arknights_EN` từng khớp cả `Arknights_EN_Beta`). Muốn khớp theo tiền tố thì dùng wildcard, ví dụ `C:\YostarGames\Arknights*`.
 
 ## 6. Đóng gói thành một file `.exe`
 

@@ -68,15 +68,17 @@ internal sealed class AppLibrary
         AtomicFile.WriteAllText(_path, json, Utf8NoBom);
     }
 
-    public LibraryApp? FindByExe(string? exePath) =>
-        string.IsNullOrWhiteSpace(exePath) ? null : Apps.FirstOrDefault(a => SamePath(a.ExePath, exePath));
+    /// <summary>App khác trong danh sách được coi là cùng game với <paramref name="app"/> (so theo thư mục).</summary>
+    public LibraryApp? FindSame(LibraryApp app) =>
+        Apps.FirstOrDefault(a => !ReferenceEquals(a, app) && a.Id != app.Id && AppIdentity.IsSame(a, app));
 
-    /// <summary>App trong danh sách ứng với mục của pipeline (null nếu là app mới).</summary>
-    public LibraryApp? FindMatch(AppEntry entry) => Apps.FirstOrDefault(a => IsSameApp(a, entry));
+    /// <summary>App trong danh sách ứng với mục của pipeline (null nếu là app mới), so theo thư mục.</summary>
+    public LibraryApp? FindMatch(AppEntry entry) => Apps.FirstOrDefault(a => AppIdentity.IsSame(a, entry));
 
     /// <summary>
-    /// Lấy trạng thái cuối cùng của pipeline (danh sách included) và chỉ thêm những app chưa có.
-    /// App cũ không bị sửa hay xóa, kể cả khi lần quét này không còn thấy nó.
+    /// Lấy trạng thái cuối cùng của pipeline (danh sách included) và chỉ thêm những app chưa có
+    /// (so theo thư mục, xem <see cref="AppIdentity"/>). App cũ không bị sửa hay xóa, kể cả khi lần quét này
+    /// không còn thấy nó hoặc exe chính đã bị đổi.
     /// </summary>
     public List<LibraryApp> MergeNew(IEnumerable<AppEntry> included)
     {
@@ -103,31 +105,4 @@ internal sealed class AppLibrary
         Included = Apps.Select(a => a.ToEntry()).ToList(),
         Excluded = []
     };
-
-    /// <summary>
-    /// Cùng một app khi trùng exe chính, hoặc cùng thư mục cài đặt mà exe chính của bên này
-    /// nằm trong danh sách exe ứng viên của bên kia (người dùng / pipeline đã đổi exe chính).
-    /// </summary>
-    private static bool IsSameApp(LibraryApp app, AppEntry entry)
-    {
-        if (SamePath(app.ExePath, entry.ExePath))
-            return true;
-
-        if (!SameDirectory(app.InstallDir, entry.InstallDir))
-            return false;
-
-        if (string.IsNullOrWhiteSpace(app.ExePath) || string.IsNullOrWhiteSpace(entry.ExePath))
-            return true;
-
-        return app.CandidateExes.Any(c => SamePath(c, entry.ExePath))
-            || (entry.CandidateExes ?? []).Any(c => SamePath(c, app.ExePath));
-    }
-
-    private static bool SamePath(string? a, string? b) =>
-        !string.IsNullOrWhiteSpace(a) && !string.IsNullOrWhiteSpace(b) &&
-        string.Equals(PathUtils.NormalizeFilePath(a), PathUtils.NormalizeFilePath(b), StringComparison.OrdinalIgnoreCase);
-
-    private static bool SameDirectory(string? a, string? b) =>
-        !string.IsNullOrWhiteSpace(a) && !string.IsNullOrWhiteSpace(b) &&
-        string.Equals(PathUtils.NormalizeDirectoryPath(a), PathUtils.NormalizeDirectoryPath(b), StringComparison.OrdinalIgnoreCase);
 }

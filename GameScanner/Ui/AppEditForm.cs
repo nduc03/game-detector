@@ -218,7 +218,9 @@ internal sealed class AppEditForm : Form
         int rowsHeight = _candidateRows.GetPreferredSize(new Size(_candidateScroll.ClientSize.Width, 0)).Height;
         bool needsScroll = rowsHeight > maxHeight;
 
-        int width = Math.Max(0, _candidateScroll.ClientSize.Width - (needsScroll ? SystemInformation.VerticalScrollBarWidth : 0));
+        // Panel không có viền nên Width là bề rộng đầy đủ; ClientSize đã trừ thanh cuộn khi nó đang hiện nên không dùng.
+        int scrollBarWidth = SystemInformation.GetVerticalScrollBarWidthForDpi(DeviceDpi);
+        int width = Math.Max(0, _candidateScroll.Width - (needsScroll ? scrollBarWidth : 0));
         _candidateRows.Size = new Size(width, rowsHeight);
         _candidateScroll.Height = Math.Min(rowsHeight, maxHeight) + 2;
     }
@@ -356,6 +358,19 @@ internal sealed class AppEditForm : Form
 
     private bool Confirm(string message) =>
         MessageBox.Show(this, message, Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+
+    // Lần tính trong constructor là trước khi form được scale theo DPI: tính lại khi đã hiện và khi đổi màn hình.
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        UpdateCandidateScrollHeight();
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        BeginInvoke(UpdateCandidateScrollHeight);
+    }
 
     protected override void Dispose(bool disposing)
     {

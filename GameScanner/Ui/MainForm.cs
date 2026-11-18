@@ -275,7 +275,12 @@ internal sealed class MainForm : Form
         _stepList.MouseDown += (_, e) => _suppressNextCheck = e.Clicks > 1;
         _stepList.MouseUp += (_, _) => _suppressNextCheck = false;
         _stepList.SelectedIndexChanged += (_, _) => UpdateStepButtons();
-        _stepList.DoubleClick += (_, _) => EditSelectedStep();
+        _stepList.DoubleClick += (_, _) =>
+        {
+            // Hộp thoại sửa là modal nên MouseUp có thể không tới ListView: xóa cờ ở đây cho chắc.
+            _suppressNextCheck = false;
+            EditSelectedStep();
+        };
 
         var stepButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
         _editStepButton = FormLayout.CreateButton("Sửa…", (_, _) => EditSelectedStep());
@@ -673,8 +678,9 @@ internal sealed class MainForm : Form
             foreach (LibraryApp app in added)
                 _newAppIds.Add(app.Id);
 
+            // Lỗi ghi file chỉ được báo riêng; app mới đã nằm trong danh sách đang hiển thị.
             if (added.Count > 0)
-                _library.Save();
+                SaveLibrary();
 
             RefreshGrid();
             string summary = $"Pipeline xong: {result.Included.Count} included, {result.Excluded?.Count ?? 0} excluded; "

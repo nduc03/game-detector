@@ -239,6 +239,14 @@ internal sealed class RulesEditForm : Form
             int index = CurrentPatterns.FindIndex(p => p == patternRef.Pattern);
             if (index >= 0)
                 CurrentPatterns[index] = edited;
+
+            // Không để mẫu trùng trong cùng danh sách hay nằm ở cả hai danh sách.
+            for (int i = CurrentPatterns.Count - 1; i >= 0; i--)
+            {
+                if (i != index && string.Equals(CurrentPatterns[i], edited, StringComparison.OrdinalIgnoreCase))
+                    CurrentPatterns.RemoveAt(i);
+            }
+            OtherPatterns.RemoveAll(p => string.Equals(p, edited, StringComparison.OrdinalIgnoreCase));
             RefreshLists();
             return;
         }
@@ -269,6 +277,17 @@ internal sealed class RulesEditForm : Form
         app.Name = v[0].Length > 0 ? v[0] : null;
         app.InstallDir = v[1].Length > 0 ? PathUtils.NormalizeDirectoryPath(v[1]) : null;
         app.ExePath = v[2].Length > 0 ? PathUtils.NormalizeFilePath(v[2]) : null;
+
+        // Đổi thư mục có thể làm game trùng với mục khác: gộp trong cùng danh sách, bỏ khỏi danh sách kia.
+        int merged = CurrentApps.RemoveAll(a => !ReferenceEquals(a, app) && SameApp(a, app));
+        int moved = OtherApps.RemoveAll(a => SameApp(a, app));
+        if (merged + moved > 0)
+        {
+            MessageBox.Show(this,
+                $"Đã gộp {merged} mục trùng thư mục trong danh sách này và bỏ {moved} mục trùng khỏi danh sách kia.",
+                Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
         RefreshLists();
     }
 

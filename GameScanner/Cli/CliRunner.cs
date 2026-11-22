@@ -67,7 +67,7 @@ internal static class CliRunner
 
     private static PipelinePacket RunFullScan(RulesConfig? rules)
     {
-        var packet = HeuristicFilterStage.Process(RegistryAndLauncherCollector.Collect());
+        var packet = HeuristicFilterStage.Process(RegistryAndLauncherCollector.CollectPacket());
 
         if (rules is null)
         {

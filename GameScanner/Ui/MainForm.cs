@@ -16,6 +16,7 @@ internal sealed class MainForm : Form
 
     private readonly AppLibrary _library;
     private readonly ScannerSettings _settings;
+    private RulesConfig _rules;
     private readonly IconCache _icons = new();
     private readonly HashSet<string> _newAppIds = [];
 
@@ -23,6 +24,7 @@ internal sealed class MainForm : Form
     private PipelinePacket? _lastPacket;
     private CancellationTokenSource? _cts;
     private bool _refreshingSteps;
+    private bool _suppressNextCheck;
     private bool _closeWhenIdle;
 
     private readonly ListView _stepList = new()
@@ -94,6 +96,7 @@ internal sealed class MainForm : Form
     private readonly List<ToolStripItem> _stopItems = [];
     private ToolStripMenuItem _exportCandidatesItem = null!;
     private Button _editStepButton = null!;
+    private Button _toggleStepButton = null!;
     private Button _deleteStepButton = null!;
     private Button _moveUpButton = null!;
     private Button _moveDownButton = null!;
@@ -111,6 +114,7 @@ internal sealed class MainForm : Form
 
         _library = AppLibrary.Load(AppPaths.LibraryFile, out string? libraryWarning);
         _settings = SettingsStore.Load(out string? settingsWarning);
+        _rules = RulesStore.Load(out string? rulesWarning);
 
         BuildUi();
         Log.SetSink(AppendLog);
@@ -132,6 +136,8 @@ internal sealed class MainForm : Form
                 Log.Info(libraryWarning);
             if (settingsWarning is not null)
                 Log.Info(settingsWarning);
+            if (rulesWarning is not null)
+                Log.Info(rulesWarning);
         };
     }
 
@@ -230,10 +236,10 @@ internal sealed class MainForm : Form
         pipeline.DropDownItems.Add(new ToolStripSeparator());
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Thêm pipeline tùy chỉnh…", AddCustomStage)));
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Sửa bước đã chọn…", EditSelectedStep)));
-        pipeline.DropDownItems.Add(IdleOnly(MenuItem("Xóa bước đã chọn", DeleteSelectedStep)));
+        pipeline.DropDownItems.Add(IdleOnly(MenuItem("Bật / tắt bước đã chọn", ToggleSelectedStep)));
+        pipeline.DropDownItems.Add(IdleOnly(MenuItem("Xóa pipeline tùy chỉnh đã chọn", DeleteSelectedStep)));
         pipeline.DropDownItems.Add(new ToolStripSeparator());
-        pipeline.DropDownItems.Add(IdleOnly(MenuItem("Chọn file rules…", ChooseRulesFile)));
-        pipeline.DropDownItems.Add(IdleOnly(MenuItem("Bỏ chọn file rules (tự tìm rules.json)", ClearRulesFile)));
+        pipeline.DropDownItems.Add(IdleOnly(MenuItem("Danh sách nhớ (game đã loại / luôn chọn)…", EditRememberList)));
 
         menu.Items.AddRange([file, pipeline]);
         return menu;
@@ -264,19 +270,28 @@ internal sealed class MainForm : Form
     {
         _stepList.Columns.Add("Bước", 280);
         _stepList.Resize += (_, _) => FitStepColumn();
+        _stepList.ItemCheck += OnStepItemCheck;
         _stepList.ItemChecked += OnStepChecked;
+        _stepList.MouseDown += (_, e) => _suppressNextCheck = e.Clicks > 1;
+        _stepList.MouseUp += (_, _) => _suppressNextCheck = false;
         _stepList.SelectedIndexChanged += (_, _) => UpdateStepButtons();
-        _stepList.DoubleClick += (_, _) => EditSelectedStep();
+        _stepList.DoubleClick += (_, _) =>
+        {
+            // Hộp thoại sửa là modal nên MouseUp có thể không tới ListView: xóa cờ ở đây cho chắc.
+            _suppressNextCheck = false;
+            EditSelectedStep();
+        };
 
         var stepButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
         _editStepButton = FormLayout.CreateButton("Sửa…", (_, _) => EditSelectedStep());
+        _toggleStepButton = FormLayout.CreateButton("Tắt", (_, _) => ToggleSelectedStep());
         _deleteStepButton = FormLayout.CreateButton("Xóa", (_, _) => DeleteSelectedStep());
         _moveUpButton = FormLayout.CreateButton("▲", (_, _) => MoveSelectedStep(-1));
         _moveDownButton = FormLayout.CreateButton("▼", (_, _) => MoveSelectedStep(+1));
         stepButtons.Controls.AddRange(
         [
             FormLayout.CreateButton("Thêm…", (_, _) => AddCustomStage()),
-            _editStepButton, _deleteStepButton, _moveUpButton, _moveDownButton
+            _editStepButton, _toggleStepButton, _deleteStepButton, _moveUpButton, _moveDownButton
         ]);
 
         var runButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
@@ -287,8 +302,9 @@ internal sealed class MainForm : Form
         ]);
 
         Label hint = FormLayout.CreateHint(
-            "Chạy từ trên xuống; bỏ tick để bỏ qua một bước khi chạy toàn bộ. Một bước lỗi thì cả lần chạy bị hủy, "
-            + "danh sách app giữ nguyên. Chạy xong, app mới trong \"included\" được thêm vào danh sách; app cũ không bị xóa.",
+            "Chạy từ trên xuống. Bước 1 luôn chạy; các bước khác bỏ tick (hoặc bấm Tắt) để bỏ qua mà vẫn giữ cấu hình. "
+            + "Danh sách nhớ luôn chạy cuối. Một bước lỗi thì cả lần chạy bị hủy, danh sách game giữ nguyên. "
+            + "Chạy xong, game mới trong \"included\" được thêm vào danh sách; game cũ không bị xóa.",
             300);
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
@@ -378,8 +394,9 @@ internal sealed class MainForm : Form
 
     #region Danh sách bước pipeline
 
-    private PipelineStep? SelectedStep =>
-        _stepList.SelectedIndices.Count == 1 ? _steps[_stepList.SelectedIndices[0]] : null;
+    private int SelectedStepIndex => _stepList.SelectedIndices.Count == 1 ? _stepList.SelectedIndices[0] : -1;
+
+    private PipelineStep? SelectedStep => SelectedStepIndex >= 0 ? _steps[SelectedStepIndex] : null;
 
     private void RefreshSteps(int? selectIndex = null)
     {
@@ -393,9 +410,11 @@ internal sealed class MainForm : Form
             for (int i = 0; i < _steps.Count; i++)
             {
                 PipelineStep step = _steps[i];
-                var item = new ListViewItem($"{i + 1}. {step.DisplayName}")
+                string suffix = !step.Enabled ? "  (đã tắt)" : !step.CanDisable ? "  (luôn chạy)" : "";
+                var item = new ListViewItem($"{i + 1}. {step.DisplayName}{suffix}")
                 {
                     Checked = step.Enabled,
+                    ForeColor = step.Enabled ? SystemColors.WindowText : SystemColors.GrayText,
                     ToolTipText = DescribeStep(step)
                 };
                 _stepList.Items.Add(item);
@@ -419,10 +438,13 @@ internal sealed class MainForm : Form
 
     private string DescribeStep(PipelineStep step) => step.Kind switch
     {
-        StepKind.Scan => "Có sẵn: quét Registry và các launcher rồi lọc bằng heuristic. Là nguồn dữ liệu, không dùng packet đầu vào.",
-        StepKind.Rules => string.IsNullOrWhiteSpace(_settings.RulesPath)
-            ? "Có sẵn: lọc theo rules.json cạnh GameScanner.exe hoặc ở thư mục hiện tại; không có file thì bỏ qua."
-            : $"Có sẵn: lọc theo file rules {_settings.RulesPath}",
+        StepKind.Collect => "Có sẵn, luôn chạy đầu tiên, không tắt được. Thu thập từ Registry và các launcher; "
+                            + "mọi mục được đặt vào \"excluded\" để các bước sau chọn.",
+        StepKind.Heuristic => "Có sẵn. Chấm điểm các mục trong \"excluded\", mục được nhận là game thì chuyển sang \"included\". "
+                              + "Tắt bước này thì chỉ pipeline tùy chỉnh và danh sách nhớ quyết định game nào được chọn.",
+        StepKind.Remember => "Có sẵn, luôn chạy cuối, không xóa được (chỉ tắt). "
+                             + $"Đang nhớ {_rules.IncludeApps.Count} game luôn chọn, {_rules.ExcludeApps.Count} game luôn loại, "
+                             + $"{_rules.IncludePaths.Count + _rules.ExcludePaths.Count} mẫu đường dẫn. Bấm Sửa để xem và chỉnh.",
         _ => $"{step.Custom!.ExePath} {step.Custom.Arguments}".Trim()
     };
 
@@ -437,39 +459,67 @@ internal sealed class MainForm : Form
         PipelineStep? step = SelectedStep;
         int customIndex = step?.Custom is null ? -1 : _settings.CustomStages.FindIndex(s => s.Id == step.Custom.Id);
 
-        _editStepButton.Enabled = step is not null && step.Kind != StepKind.Scan;
+        _editStepButton.Enabled = step is { Kind: StepKind.Custom or StepKind.Remember };
+        _toggleStepButton.Enabled = step?.CanDisable == true;
+        _toggleStepButton.Text = step is { Enabled: false } ? "Bật" : "Tắt";
         _deleteStepButton.Enabled = customIndex >= 0;
         _moveUpButton.Enabled = customIndex > 0;
         _moveDownButton.Enabled = customIndex >= 0 && customIndex < _settings.CustomStages.Count - 1;
     }
 
-    private void OnStepChecked(object? sender, ItemCheckedEventArgs e)
+    /// <summary>Chặn bỏ tick bước Collect, và chặn việc ListView tự đảo ô tick khi double-click (double-click là để sửa).</summary>
+    private void OnStepItemCheck(object? sender, ItemCheckEventArgs e)
     {
         if (_refreshingSteps)
             return;
 
-        PipelineStep step = _steps[e.Item.Index];
-        bool enabled = e.Item.Checked;
-        if (step.Enabled == enabled)
-            return; // ListView cũng bắn sự kiện này lúc mới tạo, khi chưa có gì thay đổi.
+        if (_suppressNextCheck || !_steps[e.Index].CanDisable)
+            e.NewValue = e.CurrentValue;
+
+        _suppressNextCheck = false;
+    }
+
+    private void OnStepChecked(object? sender, ItemCheckedEventArgs e)
+    {
+        if (!_refreshingSteps)
+            SetStepEnabled(e.Item.Index, e.Item.Checked);
+    }
+
+    private void ToggleSelectedStep()
+    {
+        if (!IsRunning && SelectedStep is { CanDisable: true } step)
+            SetStepEnabled(SelectedStepIndex, !step.Enabled);
+    }
+
+    /// <summary>Tắt chỉ bỏ qua bước khi chạy toàn bộ; cấu hình của bước vẫn được giữ.</summary>
+    private void SetStepEnabled(int index, bool enabled)
+    {
+        PipelineStep step = _steps[index];
+        if (!step.CanDisable || step.Enabled == enabled)
+            return;
 
         switch (step.Kind)
         {
-            case StepKind.Scan:
-                _settings.ScanStageEnabled = enabled;
+            case StepKind.Heuristic:
+                _settings.HeuristicStageEnabled = enabled;
                 break;
-            case StepKind.Rules:
-                _settings.RulesStageEnabled = enabled;
+            case StepKind.Remember:
+                _settings.RememberStageEnabled = enabled;
                 break;
-            default:
+            case StepKind.Custom:
                 CustomStage? stage = _settings.CustomStages.Find(s => s.Id == step.Custom!.Id);
-                if (stage is not null)
-                    stage.Enabled = enabled;
+                if (stage is null)
+                    return;
+                stage.Enabled = enabled;
                 break;
         }
 
-        _steps[e.Item.Index] = step with { Enabled = enabled };
+        _steps[index] = step with { Enabled = enabled };
         SaveSettings();
+        Log.Info($"[pipeline] {(enabled ? "Bật" : "Tắt")} bước: {step.DisplayName}");
+
+        // Dựng lại danh sách sau khi sự kiện của ListView xử lý xong.
+        BeginInvoke(() => RefreshSteps(selectIndex: index));
     }
 
     private void AddCustomStage()
@@ -481,9 +531,10 @@ internal sealed class MainForm : Form
         if (dialog.ShowDialog(this) != DialogResult.OK)
             return;
 
+        // Bước mới nằm sau các pipeline tùy chỉnh khác; Danh sách nhớ tự xuống cuối.
         _settings.CustomStages.Add(dialog.Result);
         SaveSettings();
-        RefreshSteps(selectIndex: _steps.Count);
+        RefreshSteps(selectIndex: 1 + _settings.CustomStages.Count); // Collect, Heuristic rồi tới các bước tùy chỉnh
     }
 
     private void EditSelectedStep()
@@ -493,12 +544,15 @@ internal sealed class MainForm : Form
 
         switch (step.Kind)
         {
-            case StepKind.Scan:
+            case StepKind.Remember:
+                EditRememberList();
                 return;
 
-            case StepKind.Rules:
-                ChooseRulesFile();
-                return;
+            case StepKind.Custom:
+                break;
+
+            default:
+                return; // Collect và Heuristic không có gì để chỉnh.
         }
 
         int index = _settings.CustomStages.FindIndex(s => s.Id == step.Custom!.Id);
@@ -511,7 +565,21 @@ internal sealed class MainForm : Form
 
         _settings.CustomStages[index] = dialog.Result;
         SaveSettings();
-        RefreshSteps(selectIndex: _stepList.SelectedIndices.Count == 1 ? _stepList.SelectedIndices[0] : null);
+        RefreshSteps(selectIndex: SelectedStepIndex);
+    }
+
+    private void EditRememberList()
+    {
+        if (IsRunning)
+            return;
+
+        using var dialog = new RulesEditForm(RulesStore.Clone(_rules));
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        _rules = dialog.Result;
+        SaveRules();
+        RefreshSteps(selectIndex: _steps.FindIndex(s => s.Kind == StepKind.Remember));
     }
 
     private void DeleteSelectedStep()
@@ -519,8 +587,11 @@ internal sealed class MainForm : Form
         if (IsRunning || SelectedStep?.Custom is not { } custom)
             return;
 
-        if (!Confirm($"Xóa pipeline tùy chỉnh \"{custom.DisplayName}\"?"))
+        if (!Confirm($"Xóa hẳn pipeline tùy chỉnh \"{custom.DisplayName}\"?\n\n"
+                     + "Nếu chỉ muốn tạm bỏ qua bước này, hãy bấm \"Tắt\" để giữ lại cấu hình."))
+        {
             return;
+        }
 
         _settings.CustomStages.RemoveAll(s => s.Id == custom.Id);
         SaveSettings();
@@ -540,37 +611,7 @@ internal sealed class MainForm : Form
 
         (stages[index], stages[target]) = (stages[target], stages[index]);
         SaveSettings();
-        RefreshSteps(selectIndex: _stepList.SelectedIndices[0] + offset);
-    }
-
-    private void ChooseRulesFile()
-    {
-        if (IsRunning)
-            return;
-
-        using var dialog = new OpenFileDialog
-        {
-            Title = "Chọn file rules",
-            Filter = "JSON (*.json)|*.json|Tất cả file (*.*)|*.*",
-            CheckFileExists = true
-        };
-
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-            return;
-
-        _settings.RulesPath = dialog.FileName;
-        SaveSettings();
-        RefreshSteps(selectIndex: 1);
-    }
-
-    private void ClearRulesFile()
-    {
-        if (IsRunning)
-            return;
-
-        _settings.RulesPath = null;
-        SaveSettings();
-        RefreshSteps(selectIndex: 1);
+        RefreshSteps(selectIndex: SelectedStepIndex + offset);
     }
 
     #endregion
@@ -623,10 +664,10 @@ internal sealed class MainForm : Form
         try
         {
             PipelinePacket input = BuildInputPacket(steps[0]);
-            string? rulesPath = _settings.RulesPath;
+            RulesConfig rules = RulesStore.Clone(_rules);
 
             PipelinePacket result = await Task.Run(
-                () => PipelineRunner.RunAsync(steps, input, rulesPath, cts.Token), cts.Token);
+                () => PipelineRunner.RunAsync(steps, input, rules, cts.Token), cts.Token);
 
             // Chỉ tới đây khi mọi bước đều thành công: trạng thái cuối cùng quyết định app nào được thêm.
             _lastPacket = result;
@@ -637,8 +678,9 @@ internal sealed class MainForm : Form
             foreach (LibraryApp app in added)
                 _newAppIds.Add(app.Id);
 
+            // Lỗi ghi file chỉ được báo riêng; app mới đã nằm trong danh sách đang hiển thị.
             if (added.Count > 0)
-                _library.Save();
+                SaveLibrary();
 
             RefreshGrid();
             string summary = $"Pipeline xong: {result.Included.Count} included, {result.Excluded?.Count ?? 0} excluded; "
@@ -679,12 +721,12 @@ internal sealed class MainForm : Form
     }
 
     /// <summary>
-    /// Bước "Quét hệ thống" tự sinh dữ liệu. Các bước khác cần packet đầu vào: lấy kết quả của lần chạy
+    /// Bước Collect tự sinh dữ liệu. Các bước khác cần packet đầu vào: lấy kết quả của lần chạy
     /// pipeline thành công gần nhất (có cả included lẫn excluded); chưa có thì dùng danh sách app hiện tại.
     /// </summary>
     private PipelinePacket BuildInputPacket(PipelineStep firstStep)
     {
-        if (firstStep.Kind == StepKind.Scan)
+        if (firstStep.Kind == StepKind.Collect)
             return new PipelinePacket();
 
         _lastPacket ??= LoadLastPacket();
@@ -766,7 +808,7 @@ internal sealed class MainForm : Form
             row.Cells[1].Value = app.Name ?? "";
             row.Cells[2].Value = app.Publisher ?? "";
             row.Cells[3].Value = app.ExePath ?? app.InstallDir ?? "";
-            row.Cells[4].Value = app.Origin == AppOrigins.Manual ? "Thủ công" : "Quét";
+            row.Cells[4].Value = app.Origin == AppOrigins.Manual ? "Thủ công" : app.Source ?? "Quét";
             if (_newAppIds.Contains(app.Id))
                 row.DefaultCellStyle.BackColor = NewAppColor;
             if (app.Id == selectId)
@@ -824,23 +866,26 @@ internal sealed class MainForm : Form
         if (fileDialog.ShowDialog(this) != DialogResult.OK)
             return;
 
-        string exe = PathUtils.NormalizeFilePath(fileDialog.FileName);
-        if (_library.FindByExe(exe) is { } existing)
-        {
-            ShowWarning($"File này đã có trong danh sách với tên \"{existing.Name}\".");
-            RefreshGrid(selectId: existing.Id);
-            return;
-        }
-
-        using var dialog = new AppEditForm(LibraryApp.FromExe(exe), isNew: true);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        LibraryApp candidate = LibraryApp.FromExe(PathUtils.NormalizeFilePath(fileDialog.FileName));
+        if (WarnIfDuplicate(candidate))
             return;
 
-        _library.Apps.Add(dialog.Result);
+        using var dialog = new AppEditForm(candidate, isNew: true);
+        if (dialog.ShowDialog(this) != DialogResult.OK || WarnIfDuplicate(dialog.Result))
+            return;
+
+        LibraryApp app = dialog.Result;
+        _library.Apps.Add(app);
         SaveLibrary();
+
+        // Nhớ là "luôn chọn" (và bỏ khỏi danh sách đã loại nếu trước đó từng xóa game này).
+        RulesStore.RememberIncluded(_rules, app);
+        SaveRules();
+        RefreshSteps(selectIndex: SelectedStepIndex);
+
         _searchBox.Clear();
-        RefreshGrid(selectId: dialog.Result.Id);
-        Log.Info($"[data] Đã thêm thủ công: {dialog.Result.Name} ({dialog.Result.ExePath})");
+        RefreshGrid(selectId: app.Id);
+        Log.Info($"[data] Đã thêm thủ công: {app.Name} ({app.ExePath})");
     }
 
     private void EditSelectedApp()
@@ -861,11 +906,15 @@ internal sealed class MainForm : Form
             return;
 
         int index = _library.Apps.IndexOf(original);
-        if (index < 0)
+        if (index < 0 || WarnIfDuplicate(dialog.Result))
             return;
 
         _library.Apps[index] = dialog.Result;
         SaveLibrary();
+
+        if (RulesStore.UpdateRemembered(_rules, original, dialog.Result))
+            SaveRules();
+
         RefreshGrid(selectId: dialog.Result.Id);
     }
 
@@ -880,16 +929,54 @@ internal sealed class MainForm : Form
 
         string what = selected.Count == 1 ? $"\"{selected[0].Name}\"" : $"{selected.Count} game";
         if (!Confirm($"Xóa {what} khỏi danh sách? File trên đĩa không bị đụng tới.\n\n"
-                     + "Lưu ý: lần chạy pipeline sau có thể thêm lại game này; muốn loại hẳn thì thêm vào excludePaths của file rules."))
+                     + "Game sẽ được ghi vào \"Danh sách nhớ\" (theo thư mục) để tự động bị loại ở các lần quét sau. "
+                     + "Muốn quét lại game này thì bỏ nó khỏi danh sách nhớ."))
         {
             return;
         }
 
         foreach (LibraryApp app in selected)
+        {
             _library.Apps.Remove(app);
+            RulesStore.RememberExcluded(_rules, app);
+        }
 
         SaveLibrary();
+        SaveRules();
+        ForgetFromLastPacket(selected);
+        RefreshSteps(selectIndex: SelectedStepIndex);
         RefreshGrid();
+    }
+
+    /// <summary>Báo và chọn sẵn game đã có trong danh sách nếu <paramref name="app"/> trùng thư mục với nó.</summary>
+    private bool WarnIfDuplicate(LibraryApp app)
+    {
+        if (_library.FindSame(app) is not { } existing)
+            return false;
+
+        ShowWarning($"Game này trùng thư mục với \"{existing.Name}\" đã có trong danh sách:\n{existing.Folder}");
+        _searchBox.Clear();
+        RefreshGrid(selectId: existing.Id);
+        return true;
+    }
+
+    /// <summary>
+    /// Kết quả pipeline gần nhất là đầu vào khi chạy riêng một bước; chuyển game vừa xóa sang excluded trong đó
+    /// để chạy riêng một bước (không có Danh sách nhớ) cũng không thêm lại chúng.
+    /// </summary>
+    private void ForgetFromLastPacket(List<LibraryApp> removed)
+    {
+        _lastPacket ??= LoadLastPacket();
+        if (_lastPacket is null)
+            return;
+
+        List<AppEntry> moved = _lastPacket.Included.Where(e => removed.Any(r => AppIdentity.IsSame(r, e))).ToList();
+        if (moved.Count == 0)
+            return;
+
+        _lastPacket.Included.RemoveAll(moved.Contains);
+        (_lastPacket.Excluded ??= []).AddRange(moved);
+        SaveLastPacket(_lastPacket);
     }
 
     private void ExportForChecker()
@@ -952,6 +1039,18 @@ internal sealed class MainForm : Form
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             ShowError($"Không lưu được danh sách app:\n{ex.Message}");
+        }
+    }
+
+    private void SaveRules()
+    {
+        try
+        {
+            RulesStore.Save(_rules);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ShowError($"Không lưu được danh sách nhớ:\n{ex.Message}");
         }
     }
 

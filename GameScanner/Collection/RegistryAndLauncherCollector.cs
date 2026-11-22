@@ -6,8 +6,8 @@ using Microsoft.Win32;
 namespace GameScanner;
 
 /// <summary>
-/// Stage 1: thu thập game/chương trình từ các launcher và Registry Uninstall,
-/// gộp trùng theo thư mục cài đặt rồi chọn exe cho từng mục.
+/// Bước Collect: thu thập game/chương trình từ các launcher và Registry Uninstall,
+/// gộp trùng theo thư mục cài đặt rồi chọn exe cho từng mục. Không phân loại: đó là việc của Heuristic.
 /// </summary>
 internal static class RegistryAndLauncherCollector
 {
@@ -25,6 +25,17 @@ internal static class RegistryAndLauncherCollector
         (RegistryHive.CurrentUser, RegistryView.Registry32, @"Software\Microsoft\Windows\CurrentVersion\Uninstall")
     ];
 
+    /// <summary>
+    /// Packet thô của bước Collect: mọi mục nằm trong "excluded" (chưa được chọn), "included" rỗng.
+    /// Bước Heuristic (hoặc rules / pipeline tùy chỉnh) sẽ chọn ra game và chuyển sang "included",
+    /// nên tắt Heuristic cũng không làm danh sách bị tràn bởi mọi phần mềm trong máy.
+    /// </summary>
+    public static PipelinePacket CollectPacket()
+    {
+        List<AppEntry> entries = Collect().Select(item => item.ToEntry()).ToList();
+        return new PipelinePacket { Included = [], Excluded = entries };
+    }
+
     public static List<ScanItem> Collect()
     {
         Log.Info("[collect] Đang quét Registry và các Game Launcher trên mọi ổ đĩa...");
@@ -36,7 +47,7 @@ internal static class RegistryAndLauncherCollector
         Run("GOGGalaxy", CollectGog, raw);
         Run("EAApp", CollectEa, raw);
         Run("RiotGames", CollectRiot, raw);
-        Run("WindowsUninstallRegistry", CollectUninstallRegistry, raw);
+        Run("Registry", CollectUninstallRegistry, raw);
 
         var items = Deduplicate(raw);
         foreach (var item in items)
@@ -386,6 +397,7 @@ internal static class RegistryAndLauncherCollector
 
     private static void Run(string source, Action<List<ScanItem>> collect, List<ScanItem> target)
     {
+        int firstNew = target.Count;
         try
         {
             collect(target);
@@ -394,6 +406,9 @@ internal static class RegistryAndLauncherCollector
         {
             Log.Info($"[collect:{source}] Cảnh báo: {ex.Message}");
         }
+
+        for (int i = firstNew; i < target.Count; i++)
+            target[i].Source ??= source;
     }
 
     private static string? ReadRegistryValue(RegistryHive hive, RegistryView view, string subKeyPath, string valueName)

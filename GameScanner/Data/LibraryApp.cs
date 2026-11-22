@@ -23,6 +23,9 @@ internal sealed class LibraryApp
 
     public List<string> CandidateExes { get; set; } = [];
 
+    /// <summary>Nơi pipeline phát hiện app (Steam, Registry...); null với app thêm thủ công.</summary>
+    public string? Source { get; set; }
+
     /// <summary><see cref="AppOrigins.Scan"/> (pipeline thêm) hoặc <see cref="AppOrigins.Manual"/> (người dùng thêm).</summary>
     public string Origin { get; set; } = AppOrigins.Scan;
 
@@ -36,9 +39,23 @@ internal sealed class LibraryApp
         ExePath = ExePath,
         InstallDir = InstallDir,
         CandidateExes = [.. CandidateExes],
+        Source = Source,
         Origin = Origin,
         AddedAtUtc = AddedAtUtc
     };
+
+    public RememberedApp ToRemembered() => new()
+    {
+        Name = Name,
+        Publisher = Publisher,
+        ExePath = ExePath,
+        InstallDir = InstallDir,
+        CandidateExes = [.. CandidateExes],
+        RememberedAtUtc = DateTime.UtcNow
+    };
+
+    /// <summary>Thư mục dùng để nhận diện app (installDir, không có thì thư mục chứa exe).</summary>
+    public string? Folder => AppIdentity.FolderOf(InstallDir, ExePath);
 
     public AppEntry ToEntry() => new()
     {
@@ -46,7 +63,8 @@ internal sealed class LibraryApp
         Publisher = Publisher,
         ExePath = ExePath,
         InstallDir = InstallDir,
-        CandidateExes = [.. CandidateExes]
+        CandidateExes = [.. CandidateExes],
+        Source = Source
     };
 
     public static LibraryApp FromEntry(AppEntry entry) => new()
@@ -56,6 +74,7 @@ internal sealed class LibraryApp
         ExePath = FirstNonEmpty(entry.ExePath),
         InstallDir = FirstNonEmpty(entry.InstallDir),
         CandidateExes = [.. (entry.CandidateExes ?? []).Where(c => !string.IsNullOrWhiteSpace(c))],
+        Source = FirstNonEmpty(entry.Source),
         Origin = AppOrigins.Scan
     };
 

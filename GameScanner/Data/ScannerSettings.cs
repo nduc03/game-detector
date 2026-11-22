@@ -53,13 +53,14 @@ internal sealed class CustomStage
 /// <summary>Nội dung file settings.json.</summary>
 internal sealed class ScannerSettings
 {
-    public bool ScanStageEnabled { get; set; } = true;
+    // Bước Collect luôn bật nên không có cờ.
 
-    public bool RulesStageEnabled { get; set; } = true;
+    public bool HeuristicStageEnabled { get; set; } = true;
 
-    /// <summary>File rules do người dùng chọn; để trống thì tự tìm rules.json như chế độ dòng lệnh.</summary>
-    public string? RulesPath { get; set; }
+    /// <summary>Bước cuối "Danh sách nhớ" (rules.json trong thư mục dữ liệu).</summary>
+    public bool RememberStageEnabled { get; set; } = true;
 
+    /// <summary>Pipeline tùy chỉnh, chạy giữa Heuristic và Danh sách nhớ theo đúng thứ tự này.</summary>
     public List<CustomStage> CustomStages { get; set; } = [];
 
     /// <summary>Khi xuất cho GameProcessChecker có kèm candidateExes hay chỉ exe chính.</summary>

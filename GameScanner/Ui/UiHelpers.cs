@@ -94,6 +94,41 @@ internal static class ShellHelper
 
     public static void OpenFolder(string dir) =>
         Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true })?.Dispose();
+
+    /// <summary>Bản online, dùng khi bản cạnh exe bị thiếu (ví dụ chỉ chép riêng GameScanner.exe).</summary>
+    private const string PipelineDocsUrl = "https://github.com/nduc03/game-detector/blob/master/GameScanner/docs/pipeline.md";
+
+    /// <summary>
+    /// Mở tài liệu pipeline tùy chỉnh: file docs\pipeline.md được build chép cạnh exe. Máy chưa gán app mở .md thì mở bằng
+    /// Notepad; thiếu file thì mở bản online.
+    /// </summary>
+    public static void OpenPipelineDocs(IWin32Window owner)
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "docs", "pipeline.md");
+        try
+        {
+            if (!File.Exists(path))
+            {
+                Process.Start(new ProcessStartInfo { FileName = PipelineDocsUrl, UseShellExecute = true })?.Dispose();
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true })?.Dispose();
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // Chưa có app nào được gán để mở file .md.
+                Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"") { UseShellExecute = false })?.Dispose();
+            }
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException or InvalidOperationException)
+        {
+            MessageBox.Show(owner, $"Không mở được tài liệu: {ex.Message}\n\n{path}\n{PipelineDocsUrl}", "GameScanner",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
 }
 
 /// <summary>Các mảnh dựng form dùng chung cho hộp thoại.</summary>

@@ -29,6 +29,10 @@
     <None Update="rules.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Tài liệu pipeline tùy chỉnh: chép vào docs\ cạnh exe (cả khi build lẫn publish) để giao diện mở được offline. -->
+    <None Update="docs\pipeline.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

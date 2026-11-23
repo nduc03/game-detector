@@ -32,7 +32,6 @@ Lưu dạng JSON trong thư mục **`GameScanner_Data` cạnh `GameScanner.exe`*
 | `library.json` | Danh sách game đã quét / thêm thủ công. |
 | `settings.json` | Các bước pipeline (bật/tắt, pipeline tùy chỉnh), tùy chọn xuất. |
 | `rules.json` | Danh sách nhớ (bước cuối pipeline). Cùng định dạng với `--rules` của chế độ dòng lệnh (mục 5). |
-| `last-packet.json` | Packet cuối của lần chạy pipeline thành công gần nhất (đầu vào khi chạy riêng một bước). |
 
 Chọn JSON thay vì SQLite vì dữ liệu chỉ vài trăm mục, không cần truy vấn, sửa tay được, và không phải đóng gói thêm thư viện native vào file exe duy nhất. File hỏng không bị ghi đè: app đổi tên nó thành `*.hong-<thời gian>` và bắt đầu lại từ rỗng.
 
@@ -45,12 +44,11 @@ Khung **Pipeline quét** liệt kê các bước theo thứ tự chạy từ tr�
 3. **Các pipeline tùy chỉnh** – do bạn định nghĩa, sắp thứ tự bằng nút ▲ ▼, tắt được hoặc xóa hẳn.
 4. **Danh sách nhớ (include / exclude)** – có sẵn, **luôn ở cuối** (pipeline mới thêm vào vẫn nằm trên nó), không xóa được, chỉ tắt được. Bấm **Sửa…** để xem và chỉnh (mục bên dưới).
 
-Bỏ tick ở một bước, hoặc chọn bước rồi bấm **Tắt**, để bỏ qua bước đó khi chạy toàn bộ mà vẫn giữ cấu hình (bước tắt hiện màu xám, ghi "đã tắt"). Bấm **Bật** để dùng lại.
+Bỏ tick ở một bước, hoặc chọn bước rồi bấm **Tắt**, để bỏ qua bước đó khi chạy mà vẫn giữ cấu hình (bước tắt hiện chữ mờ). Bấm **Bật** để dùng lại. Nút **Tắt tất cả / Bật tất cả** (cạnh **Chạy toàn bộ**, hoặc menu *Pipeline → Bật / tắt tất cả các bước*) tắt hoặc bật cùng lúc mọi bước trừ bước 1 (Collect luôn chạy): đang bật hết thì tắt hết, còn lại thì bật hết.
 
 Cách chạy:
 
-* **Chạy toàn bộ**: chạy các bước đang bật, kết quả bước trước là đầu vào bước sau.
-* **Chạy riêng bước đã chọn**: chỉ chạy một bước. Bước Collect tự sinh dữ liệu (chạy riêng nó không thêm game nào vì mọi mục nằm ở `excluded`); các bước khác nhận đầu vào là kết quả của lần chạy pipeline thành công gần nhất (gồm cả `included` lẫn `excluded`), chưa có thì lấy danh sách game hiện tại.
+* **Chạy toàn bộ** (`F5`): chạy các bước đang bật từ trên xuống, bắt đầu từ Collect; kết quả bước trước là đầu vào bước sau. Không có chế độ chạy lẻ một bước: muốn thử riêng một bước, tắt các bước khác (bước 1 vẫn chạy để có dữ liệu).
 
 Quy tắc xử lý kết quả:
 

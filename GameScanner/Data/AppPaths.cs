@@ -19,9 +19,6 @@ internal static class AppPaths
     /// <summary>Danh sách nhớ (include/exclude) của bước cuối pipeline, cùng định dạng với --rules.</summary>
     public static string RulesFile => Path.Combine(DataDir, "rules.json");
 
-    /// <summary>Packet cuối cùng của lần chạy pipeline thành công gần nhất (đầu vào khi chạy lẻ một bước).</summary>
-    public static string LastPacketFile => Path.Combine(DataDir, "last-packet.json");
-
     /// <summary>Thư mục tạm riêng cho một lần chạy pipeline (chứa file $in / $out).</summary>
     public static string CreateRunDirectory() =>
         Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "GameScanner", "run-" + Guid.NewGuid().ToString("N"))).FullName;

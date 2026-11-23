@@ -1,6 +1,3 @@
-using System.Text;
-using System.Text.Json;
-
 namespace GameScanner;
 
 /// <summary>
@@ -11,7 +8,6 @@ internal sealed class MainForm : Form
     private const string AppTitle = "GameScanner";
     private const int MaxLogLength = 400_000;
 
-    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
     private static readonly Color NewAppColor = Color.FromArgb(226, 244, 229);
 
     private readonly AppLibrary _library;
@@ -21,7 +17,6 @@ internal sealed class MainForm : Form
     private readonly HashSet<string> _newAppIds = [];
 
     private List<PipelineStep> _steps = [];
-    private PipelinePacket? _lastPacket;
     private CancellationTokenSource? _cts;
     private bool _refreshingSteps;
     private bool _suppressNextCheck;
@@ -97,6 +92,7 @@ internal sealed class MainForm : Form
     private ToolStripMenuItem _exportCandidatesItem = null!;
     private Button _editStepButton = null!;
     private Button _toggleStepButton = null!;
+    private Button _toggleAllButton = null!;
     private Button _deleteStepButton = null!;
     private Button _moveUpButton = null!;
     private Button _moveDownButton = null!;
@@ -231,12 +227,12 @@ internal sealed class MainForm : Form
 
         var pipeline = new ToolStripMenuItem("&Pipeline");
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Chạy toàn bộ pipeline", RunAll, Keys.F5)));
-        pipeline.DropDownItems.Add(IdleOnly(MenuItem("Chạy riêng bước đã chọn", RunSelectedStep, Keys.F6)));
         pipeline.DropDownItems.Add(StopItem(MenuItem("Dừng", StopPipeline, Keys.Shift | Keys.F5)));
         pipeline.DropDownItems.Add(new ToolStripSeparator());
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Thêm pipeline tùy chỉnh…", AddCustomStage)));
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Sửa bước đã chọn…", EditSelectedStep)));
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Bật / tắt bước đã chọn", ToggleSelectedStep)));
+        pipeline.DropDownItems.Add(IdleOnly(MenuItem("Bật / tắt tất cả các bước", ToggleAllSteps)));
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Xóa pipeline tùy chỉnh đã chọn", DeleteSelectedStep)));
         pipeline.DropDownItems.Add(new ToolStripSeparator());
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Danh sách nhớ (game đã loại / luôn chọn)…", EditRememberList)));
@@ -250,7 +246,6 @@ internal sealed class MainForm : Form
         var strip = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden };
 
         strip.Items.Add(IdleOnly(ToolButton("▶ Chạy toàn bộ pipeline", RunAll)));
-        strip.Items.Add(IdleOnly(ToolButton("Chạy riêng bước đã chọn", RunSelectedStep)));
         strip.Items.Add(StopItem(ToolButton("■ Dừng", StopPipeline)));
         strip.Items.Add(new ToolStripSeparator());
         strip.Items.Add(IdleOnly(ToolButton("Thêm thủ công…", AddManually)));
@@ -294,15 +289,17 @@ internal sealed class MainForm : Form
             _editStepButton, _toggleStepButton, _deleteStepButton, _moveUpButton, _moveDownButton
         ]);
 
+        _toggleAllButton = FormLayout.CreateButton("Tắt tất cả", (_, _) => ToggleAllSteps());
         var runButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
         runButtons.Controls.AddRange(
         [
             FormLayout.CreateButton("Chạy toàn bộ", (_, _) => RunAll()),
-            FormLayout.CreateButton("Chạy riêng bước đã chọn", (_, _) => RunSelectedStep())
+            _toggleAllButton
         ]);
 
         Label hint = FormLayout.CreateHint(
             "Chạy từ trên xuống. Bước 1 luôn chạy; các bước khác bỏ tick (hoặc bấm Tắt) để bỏ qua mà vẫn giữ cấu hình. "
+            + "Bước đang tắt hiện chữ mờ. Nút Bật/Tắt tất cả áp dụng cho mọi bước trừ bước 1. "
             + "Danh sách nhớ luôn chạy cuối. Một bước lỗi thì cả lần chạy bị hủy, danh sách game giữ nguyên. "
             + "Chạy xong, game mới trong \"included\" được thêm vào danh sách; game cũ không bị xóa.",
             300);
@@ -410,8 +407,7 @@ internal sealed class MainForm : Form
             for (int i = 0; i < _steps.Count; i++)
             {
                 PipelineStep step = _steps[i];
-                string suffix = !step.Enabled ? "  (đã tắt)" : !step.CanDisable ? "  (luôn chạy)" : "";
-                var item = new ListViewItem($"{i + 1}. {step.DisplayName}{suffix}")
+                var item = new ListViewItem($"{i + 1}. {step.DisplayName}")
                 {
                     Checked = step.Enabled,
                     ForeColor = step.Enabled ? SystemColors.WindowText : SystemColors.GrayText,
@@ -465,7 +461,11 @@ internal sealed class MainForm : Form
         _deleteStepButton.Enabled = customIndex >= 0;
         _moveUpButton.Enabled = customIndex > 0;
         _moveDownButton.Enabled = customIndex >= 0 && customIndex < _settings.CustomStages.Count - 1;
+        _toggleAllButton.Text = AllOptionalStepsEnabled ? "Tắt tất cả" : "Bật tất cả";
     }
+
+    /// <summary>Mọi bước tắt được (tức trừ Collect) đều đang bật.</summary>
+    private bool AllOptionalStepsEnabled => _steps.Where(s => s.CanDisable).All(s => s.Enabled);
 
     /// <summary>Chặn bỏ tick bước Collect, và chặn việc ListView tự đảo ô tick khi double-click (double-click là để sửa).</summary>
     private void OnStepItemCheck(object? sender, ItemCheckEventArgs e)
@@ -489,6 +489,26 @@ internal sealed class MainForm : Form
     {
         if (!IsRunning && SelectedStep is { CanDisable: true } step)
             SetStepEnabled(SelectedStepIndex, !step.Enabled);
+    }
+
+    /// <summary>
+    /// Đang bật hết thì tắt hết, còn lại thì bật hết. Bước Collect không tắt được nên không bị đụng tới;
+    /// cấu hình của các bước vẫn được giữ.
+    /// </summary>
+    private void ToggleAllSteps()
+    {
+        if (IsRunning)
+            return;
+
+        bool enabled = !AllOptionalStepsEnabled;
+        _settings.HeuristicStageEnabled = enabled;
+        _settings.RememberStageEnabled = enabled;
+        foreach (CustomStage stage in _settings.CustomStages)
+            stage.Enabled = enabled;
+
+        SaveSettings();
+        Log.Info($"[pipeline] {(enabled ? "Bật" : "Tắt")} tất cả các bước (trừ bước 1).");
+        RefreshSteps(selectIndex: SelectedStepIndex);
     }
 
     /// <summary>Tắt chỉ bỏ qua bước khi chạy toàn bộ; cấu hình của bước vẫn được giữ.</summary>
@@ -632,17 +652,6 @@ internal sealed class MainForm : Form
         _ = RunPipelineAsync(steps);
     }
 
-    private void RunSelectedStep()
-    {
-        if (SelectedStep is not { } step)
-        {
-            ShowWarning("Hãy chọn một bước trong danh sách pipeline.");
-            return;
-        }
-
-        _ = RunPipelineAsync([step]);
-    }
-
     private void StopPipeline()
     {
         if (_cts is { IsCancellationRequested: false } cts)
@@ -663,16 +672,14 @@ internal sealed class MainForm : Form
 
         try
         {
-            PipelinePacket input = BuildInputPacket(steps[0]);
+            // Bước Collect luôn bật nên luôn chạy đầu tiên và tự sinh dữ liệu: đầu vào là packet rỗng.
+            var input = new PipelinePacket();
             RulesConfig rules = RulesStore.Clone(_rules);
 
             PipelinePacket result = await Task.Run(
                 () => PipelineRunner.RunAsync(steps, input, rules, cts.Token), cts.Token);
 
             // Chỉ tới đây khi mọi bước đều thành công: trạng thái cuối cùng quyết định app nào được thêm.
-            _lastPacket = result;
-            SaveLastPacket(result);
-
             List<LibraryApp> added = _library.MergeNew(result.Included);
             _newAppIds.Clear();
             foreach (LibraryApp app in added)
@@ -717,55 +724,6 @@ internal sealed class MainForm : Form
             // Người dùng đã bấm đóng cửa sổ trong lúc chạy: giờ chương trình ngoài đã dừng hẳn, đóng được rồi.
             if (_closeWhenIdle && !IsDisposed)
                 Close();
-        }
-    }
-
-    /// <summary>
-    /// Bước Collect tự sinh dữ liệu. Các bước khác cần packet đầu vào: lấy kết quả của lần chạy
-    /// pipeline thành công gần nhất (có cả included lẫn excluded); chưa có thì dùng danh sách app hiện tại.
-    /// </summary>
-    private PipelinePacket BuildInputPacket(PipelineStep firstStep)
-    {
-        if (firstStep.Kind == StepKind.Collect)
-            return new PipelinePacket();
-
-        _lastPacket ??= LoadLastPacket();
-        if (_lastPacket is not null)
-        {
-            Log.Info($"[pipeline] Đầu vào: kết quả lần chạy pipeline gần nhất ({_lastPacket.Included.Count} included, "
-                     + $"{_lastPacket.Excluded?.Count ?? 0} excluded).");
-            return _lastPacket;
-        }
-
-        Log.Info($"[pipeline] Đầu vào: danh sách app hiện có ({_library.Apps.Count} app), vì chưa có kết quả pipeline nào.");
-        return _library.ToPacket();
-    }
-
-    private static PipelinePacket? LoadLastPacket()
-    {
-        try
-        {
-            return File.Exists(AppPaths.LastPacketFile)
-                ? PacketValidator.Parse(File.ReadAllText(AppPaths.LastPacketFile))
-                : null;
-        }
-        catch (Exception ex) when (ex is PacketFormatException or IOException or UnauthorizedAccessException)
-        {
-            Log.Info($"[data] Bỏ qua {AppPaths.LastPacketFile} vì không đọc được: {ex.Message}");
-            return null;
-        }
-    }
-
-    private static void SaveLastPacket(PipelinePacket packet)
-    {
-        try
-        {
-            string json = JsonSerializer.Serialize(packet, AppJsonContext.Default.PipelinePacket);
-            AtomicFile.WriteAllText(AppPaths.LastPacketFile, json, Utf8NoBom);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            Log.Info($"[data] Không lưu được {AppPaths.LastPacketFile}: {ex.Message}");
         }
     }
 
@@ -943,7 +901,6 @@ internal sealed class MainForm : Form
 
         SaveLibrary();
         SaveRules();
-        ForgetFromLastPacket(selected);
         RefreshSteps(selectIndex: SelectedStepIndex);
         RefreshGrid();
     }
@@ -958,25 +915,6 @@ internal sealed class MainForm : Form
         _searchBox.Clear();
         RefreshGrid(selectId: existing.Id);
         return true;
-    }
-
-    /// <summary>
-    /// Kết quả pipeline gần nhất là đầu vào khi chạy riêng một bước; chuyển game vừa xóa sang excluded trong đó
-    /// để chạy riêng một bước (không có Danh sách nhớ) cũng không thêm lại chúng.
-    /// </summary>
-    private void ForgetFromLastPacket(List<LibraryApp> removed)
-    {
-        _lastPacket ??= LoadLastPacket();
-        if (_lastPacket is null)
-            return;
-
-        List<AppEntry> moved = _lastPacket.Included.Where(e => removed.Any(r => AppIdentity.IsSame(r, e))).ToList();
-        if (moved.Count == 0)
-            return;
-
-        _lastPacket.Included.RemoveAll(moved.Contains);
-        (_lastPacket.Excluded ??= []).AddRange(moved);
-        SaveLastPacket(_lastPacket);
     }
 
     private void ExportForChecker()

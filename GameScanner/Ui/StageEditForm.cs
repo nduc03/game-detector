@@ -4,6 +4,9 @@ namespace GameScanner;
 internal sealed class StageEditForm : Form
 {
     private const int FieldWidth = 520;
+    // Lề trên của nhóm radio "Lấy kết quả từ" và của radio đầu tiên (Margin mặc định của control là 3).
+    private const int ResultPanelTopMargin = 3;
+    private const int RadioTopMargin = 3;
 
     private readonly CustomStage _stage;
     private readonly TextBox _nameBox = FormLayout.CreateTextBox(FieldWidth);
@@ -80,7 +83,11 @@ internal sealed class StageEditForm : Form
 
         grid.Controls.Add(_pipeBox, 1, row++);
 
-        grid.Controls.Add(FormLayout.CreateLabel("Lấy kết quả từ:"), 0, row);
+        // Nhãn neo lên đầu ô (ngang dòng radio đầu tiên) thay vì canh giữa theo chiều cao cả nhóm radio.
+        Label resultLabel = FormLayout.CreateLabel("Lấy kết quả từ:");
+        resultLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        resultLabel.Margin = resultLabel.Margin with { Top = ResultPanelTopMargin + RadioTopMargin + 2 };
+        grid.Controls.Add(resultLabel, 0, row);
         grid.Controls.Add(CreateResultPanel(), 1, row++);
 
         grid.Controls.Add(FormLayout.CreateLabel("Giới hạn thời gian (giây):"), 0, row);
@@ -111,7 +118,7 @@ internal sealed class StageEditForm : Form
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Dock = DockStyle.Fill,
-            Margin = new Padding(0, 3, 0, 8)
+            Margin = new Padding(0, ResultPanelTopMargin, 0, 8)
         };
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));

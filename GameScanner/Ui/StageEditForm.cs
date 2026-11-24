@@ -15,7 +15,7 @@ internal sealed class StageEditForm : Form
     private readonly TextBox _argsBox = FormLayout.CreateTextBox(FieldWidth);
     private readonly CheckBox _pipeBox = new()
     {
-        Text = "Truyền packet vào stdin của chương trình (kiểu nối pipe `|`)",
+        Text = "Truyền dữ liệu đầu vào (packet) qua stdin",
         AutoSize = true,
         Margin = new Padding(3, 3, 3, 8)
     };
@@ -75,10 +75,10 @@ internal sealed class StageEditForm : Form
         grid.Controls.Add(_argsBox, 1, row++);
 
         grid.Controls.Add(FormLayout.CreateHint(
-            "Biến có thể chèn vào tham số:\n"
-            + "  $in  — đường dẫn file JSON chứa pipeline packet đầu vào (trước khi xử lý).\n"
-            + "  $out — đường dẫn file để chương trình ghi pipeline packet đã xử lý.\n"
-            + "Biến nằm ngoài cặp nháy kép sẽ tự được bọc nháy. Đường dẫn khác trong tham số nên viết dạng tuyệt đối.",
+            "Biến hỗ trợ:\n"
+            + "$in — đường dẫn file JSON chứa pipeline packet đầu vào (trước khi xử lý).\n"
+            + "$out — đường dẫn file để chương trình ghi pipeline packet đã xử lý.\n"
+            + "Biến tự động bọc nháy kép. Các đường dẫn khác nên dùng đường dẫn tuyệt đối.",
             FieldWidth), 1, row++);
 
         grid.Controls.Add(_pipeBox, 1, row++);
@@ -89,13 +89,23 @@ internal sealed class StageEditForm : Form
         resultLabel.Margin = resultLabel.Margin with { Top = ResultPanelTopMargin + RadioTopMargin + 2 };
         grid.Controls.Add(resultLabel, 0, row);
         grid.Controls.Add(CreateResultPanel(), 1, row++);
+        grid.Controls.Add(FormLayout.CreateHint(
+            "Kết quả phải là JSON dạng { \"included\": [...], \"excluded\": [...] }. Chương trình thoát với mã khác 0, "
+            + "quá thời gian hoặc trả kết quả sai cấu trúc sẽ làm hủy cả lần quét.",
+            FieldWidth), 1, row++);
 
         grid.Controls.Add(FormLayout.CreateLabel("Giới hạn thời gian (giây):"), 0, row);
         grid.Controls.Add(_timeoutBox, 1, row++);
-        grid.Controls.Add(FormLayout.CreateHint(
-            "0 = không giới hạn. Kết quả phải là JSON đúng cấu trúc { \"included\": [...], \"excluded\": [...] }; "
-            + "chương trình thoát với mã khác 0, quá thời gian hoặc trả kết quả sai cấu trúc đều làm cả lần chạy pipeline bị hủy.",
-            FieldWidth), 1, row++);
+        grid.Controls.Add(FormLayout.CreateHint("0 = không giới hạn.", FieldWidth), 1, row++);
+
+        var docsLink = new LinkLabel
+        {
+            Text = "Xem tài liệu viết pipeline tùy chỉnh (định dạng packet, ví dụ script)",
+            AutoSize = true,
+            Margin = new Padding(3, 0, 3, 8)
+        };
+        docsLink.LinkClicked += (_, _) => ShellHelper.OpenPipelineDocs(this);
+        grid.Controls.Add(docsLink, 1, row++);
 
         FlowLayoutPanel buttons = FormLayout.CreateDialogButtons(this, (_, _) => Accept());
         grid.Controls.Add(buttons, 0, row);

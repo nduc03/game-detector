@@ -68,12 +68,9 @@ internal sealed class RulesEditForm : Form
         _moveButton.MinimumSize = new Size(190, 0);
 
         Label hint = FormLayout.CreateHint(
-            "Bước \"Danh sách nhớ\" chạy cuối pipeline. Game nhớ được so theo thư mục cài đặt (không phân biệt hoa thường): "
-            + "game xóa khỏi danh sách chính được tự thêm vào \"Luôn loại\", game thêm thủ công vào \"Luôn chọn\". "
+            "Game xóa khỏi danh sách chính được tự thêm vào \"Luôn loại\"; game thêm thủ công vào \"Luôn chọn\". "
             + "Game luôn chọn mà lần quét không thấy sẽ được thêm lại nếu còn trên đĩa. "
-            + "Mẫu đường dẫn: đường dẫn tuyệt đối (khớp chính nó và mọi thứ bên trong), có * là wildcard, "
-            + "\"regex:...\" là biểu thức chính quy, còn lại là chứa chuỗi con. "
-            + "Ưu tiên: game luôn chọn → game luôn loại → mẫu luôn chọn → mẫu luôn loại.", 800);
+            + "Quy tắc theo từng game luôn được ưu tiên hơn mẫu đường dẫn.", 800);
         hint.Dock = DockStyle.Fill;
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3, Padding = new Padding(10) };
@@ -350,7 +347,11 @@ internal sealed class RulesEditForm : Form
     {
         using var dialog = new FieldsForm(title,
             [new FieldSpec("Mẫu:", initial, FieldBrowse.Folder)],
-            "Ví dụ: D:\\Games\\MyGame (thư mục và mọi thứ bên trong), *\\Games\\*, *\\Common Files\\*, regex:\\\\Ubisoft\\\\.*\\.exe$",
+            "Cách viết mẫu:\n"
+            + "  D:\\Games\\MyGame — thư mục đó và mọi thứ bên trong\n"
+            + "  *\\Games\\* — có * là ký tự đại diện (wildcard)\n"
+            + "  regex:\\\\Ubisoft\\\\.*\\.exe$ — biểu thức chính quy\n"
+            + "  Common Files — đường dẫn có chứa chuỗi này",
             values =>
             {
                 if (values[0].Length == 0)

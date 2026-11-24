@@ -7,7 +7,7 @@ Bộ hai ứng dụng Windows nhỏ để **biết máy bạn có đang chạy g
 | **GameScanner** | *Tìm* game đã cài trên máy và tạo ra danh sách game cần theo dõi (`games.json`). | Mở khi cần, dùng xong tắt. Có giao diện, cũng có chế độ dòng lệnh. |
 | **GameProcessChecker** | *Theo dõi* liên tục: cứ vài chục giây kiểm tra xem có game nào trong danh sách đang chạy không. | Chạy ngầm ở khay hệ thống (system tray), nên mở cùng Windows. |
 
-> **Lưu ý:** cả hai chỉ chạy trên Windows. README này mô tả hành vi theo code ở [PR #2](https://github.com/nduc03/game-detector/pull/2) (pipeline mới, Danh sách nhớ, dữ liệu portable). Chi tiết sâu của GameScanner (định dạng packet, cú pháp rules, ví dụ pipeline) nằm ở [`GameScanner/readme.md`](GameScanner/readme.md).
+> **Lưu ý:** cả hai chỉ chạy trên Windows. README này mô tả hành vi theo code ở [PR #2](https://github.com/nduc03/game-detector/pull/2) (pipeline mới, Danh sách nhớ, dữ liệu portable). Hướng dẫn sử dụng GameScanner chi tiết nằm ở [`GameScanner/readme.md`](GameScanner/readme.md); phần kỹ thuật (định dạng packet, cú pháp rules, ví dụ pipeline, dòng lệnh) nằm ở [`GameScanner/docs/pipeline.md`](GameScanner/docs/pipeline.md).
 
 ---
 
@@ -77,7 +77,7 @@ Cùng file `GameScanner.exe` nhưng thêm cờ `--cli` sẽ chạy không giao d
 .\GameScanner.exe --cli > scan_full.json
 ```
 
-Xem thêm ví dụ nối nhiều bước bằng `|` trong [`GameScanner/readme.md`](GameScanner/readme.md#2-chế-độ-dòng-lệnh-unix-filter).
+Xem thêm ví dụ nối nhiều bước bằng `|` trong [`GameScanner/docs/pipeline.md`](GameScanner/docs/pipeline.md#6-chế-độ-dòng-lệnh-unix-filter).
 
 ---
 
@@ -160,11 +160,11 @@ GameScanner cho phép nối thêm chương trình của bạn vào chuỗi quét
 
 - Trong giao diện: *Pipeline → Thêm pipeline tùy chỉnh…*, chọn chương trình, tham số, cách truyền dữ liệu vào/ra và giới hạn thời gian.
 - Ngoài giao diện: nối bằng `|` ở chế độ `--cli`.
-- Hợp đồng đầu vào/ra, ví dụ mẫu Node.js: xem [`GameScanner/readme.md`](GameScanner/readme.md#3-cấu-trúc-packet-pipelinepacket).
+- Hợp đồng đầu vào/ra, ví dụ mẫu Node.js: xem [`GameScanner/docs/pipeline.md`](GameScanner/docs/pipeline.md#3-cấu-trúc-packet-pipelinepacket).
 
 ### Dạy app bằng quy tắc
 
-Ngoài việc thêm/xóa tay từng game, bạn có thể luôn chọn hoặc luôn loại theo thư mục, theo mẫu đường dẫn (ví dụ mọi thứ trong `D:\Games\`). Có thể chỉnh trong *Danh sách nhớ* hoặc viết file `rules.json` (định dạng ở [`GameScanner/readme.md`](GameScanner/readme.md#5-file-rules-rulesjson)).
+Ngoài việc thêm/xóa tay từng game, bạn có thể luôn chọn hoặc luôn loại theo thư mục, theo mẫu đường dẫn (ví dụ mọi thứ trong `D:\Games\`). Có thể chỉnh trong *Danh sách nhớ* hoặc viết file `rules.json` (định dạng ở [`GameScanner/docs/pipeline.md`](GameScanner/docs/pipeline.md#7-file-rules-rulesjson)).
 
 ### Đọc kết quả bằng chương trình của bạn
 

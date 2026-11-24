@@ -209,7 +209,7 @@ internal sealed class MainForm : Form
         file.DropDownItems.Add(deleteItem);
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add(MenuItem("Xuất JSON cho GameProcessChecker…", ExportForChecker, Keys.Control | Keys.E));
-        _exportCandidatesItem = new ToolStripMenuItem("Xuất kèm exe khác của game (candidateExes)")
+        _exportCandidatesItem = new ToolStripMenuItem("Xuất kèm exe khác của game")
         {
             CheckOnClick = true,
             Checked = _settings.ExportCandidateExes
@@ -236,6 +236,8 @@ internal sealed class MainForm : Form
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Xóa pipeline tùy chỉnh đã chọn", DeleteSelectedStep)));
         pipeline.DropDownItems.Add(new ToolStripSeparator());
         pipeline.DropDownItems.Add(IdleOnly(MenuItem("Danh sách nhớ (game đã loại / luôn chọn)…", EditRememberList)));
+        pipeline.DropDownItems.Add(new ToolStripSeparator());
+        pipeline.DropDownItems.Add(MenuItem("Tài liệu viết pipeline tùy chỉnh", () => ShellHelper.OpenPipelineDocs(this)));
 
         menu.Items.AddRange([file, pipeline]);
         return menu;
@@ -298,10 +300,8 @@ internal sealed class MainForm : Form
         ]);
 
         Label hint = FormLayout.CreateHint(
-            "Chạy từ trên xuống. Bước 1 luôn chạy; các bước khác bỏ tick (hoặc bấm Tắt) để bỏ qua mà vẫn giữ cấu hình. "
-            + "Bước đang tắt hiện chữ mờ. Nút Bật/Tắt tất cả áp dụng cho mọi bước trừ bước 1. "
-            + "Danh sách nhớ luôn chạy cuối. Một bước lỗi thì cả lần chạy bị hủy, danh sách game giữ nguyên. "
-            + "Chạy xong, game mới trong \"included\" được thêm vào danh sách; game cũ không bị xóa.",
+            "Quét xong chỉ thêm game mới vào danh sách, không xóa game đã có. "
+            + "Nếu một bước lỗi, cả lần quét bị hủy và danh sách giữ nguyên.",
             300);
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
@@ -434,11 +434,10 @@ internal sealed class MainForm : Form
 
     private string DescribeStep(PipelineStep step) => step.Kind switch
     {
-        StepKind.Collect => "Có sẵn, luôn chạy đầu tiên, không tắt được. Thu thập từ Registry và các launcher; "
-                            + "mọi mục được đặt vào \"excluded\" để các bước sau chọn.",
-        StepKind.Heuristic => "Có sẵn. Chấm điểm các mục trong \"excluded\", mục được nhận là game thì chuyển sang \"included\". "
-                              + "Tắt bước này thì chỉ pipeline tùy chỉnh và danh sách nhớ quyết định game nào được chọn.",
-        StepKind.Remember => "Có sẵn, luôn chạy cuối, không xóa được (chỉ tắt). "
+        StepKind.Collect => "Thu thập ứng dụng từ Registry và các launcher (luôn chạy đầu tiên).",
+        StepKind.Heuristic => "Tự động nhận diện game trong các ứng dụng vừa thu thập. "
+                              + "Tắt bước này thì chỉ pipeline tùy chỉnh và Danh sách nhớ quyết định game nào được chọn.",
+        StepKind.Remember => "Áp dụng Luôn chọn / Luôn loại ở bước cuối. "
                              + $"Đang nhớ {_rules.IncludeApps.Count} game luôn chọn, {_rules.ExcludeApps.Count} game luôn loại, "
                              + $"{_rules.IncludePaths.Count + _rules.ExcludePaths.Count} mẫu đường dẫn. Bấm Sửa để xem và chỉnh.",
         _ => $"{step.Custom!.ExePath} {step.Custom.Arguments}".Trim()

@@ -57,16 +57,6 @@ internal sealed class LibraryApp
     /// <summary>Thư mục dùng để nhận diện app (installDir, không có thì thư mục chứa exe).</summary>
     public string? Folder => AppIdentity.FolderOf(InstallDir, ExePath);
 
-    public AppEntry ToEntry() => new()
-    {
-        Name = Name,
-        Publisher = Publisher,
-        ExePath = ExePath,
-        InstallDir = InstallDir,
-        CandidateExes = [.. CandidateExes],
-        Source = Source
-    };
-
     public static LibraryApp FromEntry(AppEntry entry) => new()
     {
         Name = FirstNonEmpty(entry.Name, FileNameOf(entry.ExePath), FolderNameOf(entry.InstallDir)),

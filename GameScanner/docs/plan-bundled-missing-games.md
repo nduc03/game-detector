@@ -42,7 +42,6 @@ Collect ─► Heuristic ─► [Common missing games] ─► (pipeline tùy ch�
 * Đây là **bước có sẵn**, chạy trong process, không phải chương trình ngoài. Cách làm: thêm `BundledMissing` vào `StepKind`, enum hiện tại trong code refactor là `Collect`, `Heuristic`, `Custom`, `Remember`. Bước này có checkbox bật/tắt như các bước khác và lưu trạng thái trong `settings.json`.
 * Đặt **sau Heuristic** để dùng được `excluded`, và **trước pipeline tùy chỉnh** để script ngoài thấy kết quả và sửa được.
 * **Danh sách nhớ chạy cuối**, nên exclude của người dùng luôn thắng, kể cả với mục do DB thêm vào.
-* Nếu chạy riêng bước này, đầu vào là packet của lần chạy gần nhất, giống các bước khác.
 
 Bước gồm hai pha con, mỗi pha có thể tắt riêng trong settings:
 

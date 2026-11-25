@@ -33,7 +33,7 @@ internal sealed record PipelineStep(StepKind Kind, string DisplayName, bool Enab
         var steps = new List<PipelineStep>
         {
             new(StepKind.Collect, "Thu thập (Registry + launcher)", Enabled: true),
-            new(StepKind.Heuristic, "Heuristic (chọn game từ excluded)", settings.HeuristicStageEnabled)
+            new(StepKind.Heuristic, "Heuristic (tự nhận diện game)", settings.HeuristicStageEnabled)
         };
 
         steps.AddRange(settings.CustomStages.Select(s => new PipelineStep(StepKind.Custom, s.DisplayName, s.Enabled, s.Clone())));

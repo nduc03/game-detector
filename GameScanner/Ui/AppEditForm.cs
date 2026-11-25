@@ -86,10 +86,9 @@ internal sealed class AppEditForm : Form
         grid.Controls.Add(addCandidate, 1, row++);
 
         grid.Controls.Add(FormLayout.CreateHint(
-            "Chỉ cần file exe chính; các trường còn lại không bắt buộc. \"Exe khác của game\" (candidateExes) là những file exe "
-            + "cũng được coi là game này đang chạy. ⬆ đưa một exe khác lên làm exe chính, ✕ xóa dòng đó. "
-            + "Game được nhận diện theo thư mục cài đặt (không có thì theo thư mục chứa exe chính), "
-            + "nên đổi exe chính không làm game bị thêm trùng khi quét lại.", FieldWidth), 1, row++);
+            "Cần file exe chính hoặc thư mục cài đặt; các trường khác không bắt buộc. "
+            + "\"Exe khác của game\" là các file .exe phụ (launcher, bản 64-bit…) cũng được tính là game đang chạy.",
+            FieldWidth), 1, row++);
 
         FlowLayoutPanel buttons = FormLayout.CreateDialogButtons(this, (_, _) => Accept());
         grid.Controls.Add(buttons, 0, row);
@@ -189,7 +188,7 @@ internal sealed class AppEditForm : Form
                          + (currentMain is null ? "" : $"\n\nExe chính hiện tại sẽ chuyển xuống danh sách exe khác:\n{currentMain}");
 
         using var confirm = new CheckConfirmForm(Text, message,
-            "Xóa toàn bộ exe khác sau khi promote (kể cả exe chính hiện tại)", isChecked: false);
+            "Xóa toàn bộ exe khác sau khi đổi (kể cả exe chính hiện tại)", isChecked: false);
         if (confirm.ShowDialog(this) != DialogResult.OK)
             return;
 

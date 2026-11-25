@@ -98,11 +98,4 @@ internal sealed class AppLibrary
 
         return added;
     }
-
-    /// <summary>Packet dựng từ danh sách hiện có, dùng làm đầu vào khi chưa có kết quả pipeline nào.</summary>
-    public PipelinePacket ToPacket() => new()
-    {
-        Included = Apps.Select(a => a.ToEntry()).ToList(),
-        Excluded = []
-    };
 }
